@@ -16,6 +16,10 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
+        extra_kwargs = {
+            'name': {'min_length': 2, 'max_length': 100},
+            'description': {'max_length': 2000, 'required': False},
+        }
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -52,6 +56,10 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = '__all__'
+        extra_kwargs = {
+            'name': {'min_length': 2, 'max_length': 100},
+            'description': {'max_length': 2000, 'required': False},
+        }
 
     def get_average_rating(self, obj):
         avg = getattr(obj, 'avg_rating', None)
@@ -97,6 +105,9 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
         fields = ['id', 'product', 'reviewer_name', 'reviewer_email', 'rating', 'comment', 'created_at', 'updated_at']
         read_only_fields = ['id', 'product', 'reviewer_name', 'reviewer_email', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'comment': {'max_length': 1000, 'required': False},
+        }
 
     def get_reviewer_name(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.email

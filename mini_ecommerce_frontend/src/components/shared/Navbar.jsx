@@ -4,7 +4,7 @@ import { ShoppingCart, Bell, Sun, Moon, Menu, Search, X, LogOut, User, Heart, Pa
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import {
   DropdownMenu,
@@ -309,6 +309,7 @@ export default function Navbar() {
               <DropdownMenu>
                 <DropdownMenuTrigger className="hidden md:flex items-center gap-2 pl-2 pr-3 rounded-lg hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 transition-colors">
                   <Avatar className="h-7 w-7">
+                    {user?.avatar && <AvatarImage src={user.avatar} alt={user.first_name || user.email} />}
                     <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                       {initials}
                     </AvatarFallback>
@@ -368,6 +369,7 @@ export default function Navbar() {
                     {accessToken ? (
                       <>
                         <Avatar className="h-10 w-10">
+                          {user?.avatar && <AvatarImage src={user.avatar} alt={user.first_name || user.email} />}
                           <AvatarFallback className="bg-primary text-primary-foreground">
                             {initials}
                           </AvatarFallback>

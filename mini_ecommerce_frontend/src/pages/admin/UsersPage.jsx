@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import ErrorMessage from '@/components/shared/ErrorMessage'
+import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
 import Pagination from '@/components/shared/Pagination'
 import TableSkeleton from '@/components/shared/TableSkeleton'
 import useUnsavedChanges from '@/hooks/useUnsavedChanges.jsx'
@@ -32,10 +33,28 @@ function UserForm({ initial, onSave, onClose, markDirty, confirmClose }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
+
+  function validate() {
+    const errors = {}
+    if (!isEdit) {
+      if (!form.email.trim()) errors.email = 'Email is required.'
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Enter a valid email address.'
+      if (!form.password) errors.password = 'Password is required.'
+      else if (form.password.length < 8) errors.password = 'Password must be at least 8 characters.'
+    }
+    if (isEdit && form.password && form.password.length < 8) errors.password = 'Password must be at least 8 characters.'
+    if (form.first_name.length > 150) errors.first_name = 'First name must be at most 150 characters.'
+    if (form.last_name.length > 150) errors.last_name = 'Last name must be at most 150 characters.'
+    return errors
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    const errors = validate()
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setSaving(true)
     try {
       const payload = { ...form }
@@ -52,20 +71,25 @@ function UserForm({ initial, onSave, onClose, markDirty, confirmClose }) {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <ErrorMessage error={error} />
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2 space-y-1.5">
-            <Label>Email *</Label>
-            <Input type="email" value={form.email} onChange={e => { setForm(f => ({ ...f, email: e.target.value })); markDirty() }} required disabled={isEdit} />
+            <Label>Email <span className="text-destructive">*</span></Label>
+            <Input type="email" value={form.email} onChange={e => { setForm(f => ({ ...f, email: e.target.value })); setFieldErrors(f => ({ ...f, email: '' })); markDirty() }} disabled={isEdit} />
+            {fieldErrors.email && <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>First name</Label>
-            <Input value={form.first_name} onChange={e => { setForm(f => ({ ...f, first_name: e.target.value })); markDirty() }} />
+            <Input value={form.first_name} onChange={e => { setForm(f => ({ ...f, first_name: e.target.value })); setFieldErrors(f => ({ ...f, first_name: '' })); markDirty() }} maxLength={150} />
+            {fieldErrors.first_name && <p className="text-sm text-destructive mt-1">{fieldErrors.first_name}</p>}
+            <MaxLengthWarning value={form.first_name} max={150} />
           </div>
           <div className="space-y-1.5">
             <Label>Last name</Label>
-            <Input value={form.last_name} onChange={e => { setForm(f => ({ ...f, last_name: e.target.value })); markDirty() }} />
+            <Input value={form.last_name} onChange={e => { setForm(f => ({ ...f, last_name: e.target.value })); setFieldErrors(f => ({ ...f, last_name: '' })); markDirty() }} maxLength={150} />
+            {fieldErrors.last_name && <p className="text-sm text-destructive mt-1">{fieldErrors.last_name}</p>}
+            <MaxLengthWarning value={form.last_name} max={150} />
           </div>
           <div className="space-y-1.5">
             <Label>Role</Label>
@@ -79,7 +103,8 @@ function UserForm({ initial, onSave, onClose, markDirty, confirmClose }) {
           </div>
           <div className="space-y-1.5">
             <Label>{isEdit ? 'New password (leave blank to keep)' : 'Password *'}</Label>
-            <Input type="password" value={form.password} onChange={e => { setForm(f => ({ ...f, password: e.target.value })); markDirty() }} required={!isEdit} autoComplete="new-password" />
+            <Input type="password" value={form.password} onChange={e => { setForm(f => ({ ...f, password: e.target.value })); setFieldErrors(f => ({ ...f, password: '' })); markDirty() }} autoComplete="new-password" />
+            {fieldErrors.password && <p className="text-sm text-destructive mt-1">{fieldErrors.password}</p>}
           </div>
         </div>
         <DialogFooter>

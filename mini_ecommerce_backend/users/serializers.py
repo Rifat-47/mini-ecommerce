@@ -9,8 +9,10 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'role', 'date_of_birth', 'password']
         extra_kwargs = {
-            'password': {'write_only': True},
-            'role': {'required': True}
+            'password': {'write_only': True, 'min_length': 8, 'max_length': 20},
+            'role': {'required': True},
+            'first_name': {'max_length': 25},
+            'last_name': {'max_length': 25},
         }
     
     def create(self, validated_data):
@@ -26,13 +28,26 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ProfileSerializer(serializers.ModelSerializer):
+    avatar_url = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'date_of_birth', 'password']
+        fields = ['id', 'email', 'first_name', 'last_name', 'date_of_birth', 'password', 'avatar_url']
         extra_kwargs = {
-            'password': {'write_only': True, 'required': False},
+            'password': {'write_only': True, 'required': False, 'min_length': 8, 'max_length': 20},
             'email': {'read_only': True},
+            'first_name': {'max_length': 25},
+            'last_name': {'max_length': 25},
         }
+
+    def get_avatar_url(self, obj):
+        if not obj.avatar:
+            return None
+        url = obj.avatar.url
+        if url.startswith('http'):
+            return url
+        request = self.context.get('request')
+        return request.build_absolute_uri(url) if request else url
 
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
@@ -44,13 +59,15 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, min_length=8, max_length=20)
 
     class Meta:
         model = User
         fields = ['email', 'password', 'first_name', 'last_name', 'date_of_birth', 'role']
         extra_kwargs = {
             'role': {'read_only': True},
+            'first_name': {'max_length': 25},
+            'last_name': {'max_length': 25},
         }
 
     def create(self, validated_data):
@@ -84,6 +101,17 @@ class UserAddressSerializer(serializers.ModelSerializer):
             'created_at',
         ]
         read_only_fields = ['id', 'created_at']
+        extra_kwargs = {
+            'label':           {'max_length': 50,  'required': False},
+            'full_name':       {'min_length': 2,   'max_length': 255},
+            'phone':           {'min_length': 7,   'max_length': 20},
+            'address_line_1':  {'min_length': 5,   'max_length': 255},
+            'address_line_2':  {'max_length': 255, 'required': False},
+            'city':            {'min_length': 2,   'max_length': 100},
+            'state':           {'min_length': 2,   'max_length': 100},
+            'postal_code':     {'min_length': 3,   'max_length': 20},
+            'country':         {'min_length': 2,   'max_length': 100},
+        }
 
     def create(self, validated_data):
         user = self.context['request'].user

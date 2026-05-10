@@ -4,6 +4,7 @@ mini_ecommerce_backend/seed_images.py
 
 # ── Python / Django ───────────────────────────────────────
 mini_ecommerce_backend/venv/
+mini_ecommerce_backend/lvenv/
 mini_ecommerce_backend/.env
 mini_ecommerce_backend/__pycache__/
 mini_ecommerce_backend/**/__pycache__/

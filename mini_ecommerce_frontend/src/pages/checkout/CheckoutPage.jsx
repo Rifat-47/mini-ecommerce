@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import ErrorMessage from '@/components/shared/ErrorMessage'
+import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
 import api from '@/api/axios'
 import useCartStore from '@/store/cartStore'
 
@@ -20,14 +21,45 @@ function AddressForm({ onSave, onCancel }) {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   function handleChange(e) {
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
+    const { name, value } = e.target
+    setForm((f) => ({ ...f, [name]: value }))
+    setFieldErrors((f) => ({ ...f, [name]: '' }))
+  }
+
+  function validate() {
+    const errors = {}
+    if (!form.full_name.trim()) errors.full_name = 'Full name is required.'
+    else if (form.full_name.trim().length < 2) errors.full_name = 'Full name must be at least 2 characters.'
+    else if (form.full_name.length > 255) errors.full_name = 'Full name must be at most 255 characters.'
+    if (!form.phone.trim()) errors.phone = 'Phone is required.'
+    else if (form.phone.trim().length < 7) errors.phone = 'Phone must be at least 7 characters.'
+    else if (form.phone.length > 20) errors.phone = 'Phone must be at most 20 characters.'
+    if (!form.address_line_1.trim()) errors.address_line_1 = 'Address is required.'
+    else if (form.address_line_1.trim().length < 5) errors.address_line_1 = 'Address must be at least 5 characters.'
+    else if (form.address_line_1.length > 255) errors.address_line_1 = 'Address must be at most 255 characters.'
+    if (form.address_line_2.length > 255) errors.address_line_2 = 'Must be at most 255 characters.'
+    if (!form.city.trim()) errors.city = 'City is required.'
+    else if (form.city.trim().length < 2) errors.city = 'City must be at least 2 characters.'
+    else if (form.city.length > 100) errors.city = 'City must be at most 100 characters.'
+    if (!form.state.trim()) errors.state = 'State is required.'
+    else if (form.state.trim().length < 2) errors.state = 'State must be at least 2 characters.'
+    else if (form.state.length > 100) errors.state = 'State must be at most 100 characters.'
+    if (!form.postal_code.trim()) errors.postal_code = 'Postal code is required.'
+    else if (form.postal_code.trim().length < 3) errors.postal_code = 'Postal code must be at least 3 characters.'
+    else if (form.postal_code.length > 20) errors.postal_code = 'Postal code must be at most 20 characters.'
+    if (form.label.length > 50) errors.label = 'Label must be at most 50 characters.'
+    return errors
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    const errors = validate()
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setLoading(true)
     try {
       const { data } = await api.post('/addresses/', form)
@@ -40,41 +72,57 @@ function AddressForm({ onSave, onCancel }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 mt-4 p-4 border border-border rounded-lg bg-muted/30">
+    <form onSubmit={handleSubmit} noValidate className="space-y-3 mt-4 p-4 border border-border rounded-lg bg-muted/30">
       <h3 className="font-medium text-sm">New Address</h3>
       <ErrorMessage error={error} />
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2 sm:col-span-1">
           <Label htmlFor="full_name" className="text-xs">Full name <span className="text-destructive">*</span></Label>
-          <Input id="full_name" name="full_name" value={form.full_name} onChange={handleChange} required className="mt-1 h-8 text-sm" />
+          <Input id="full_name" name="full_name" value={form.full_name} onChange={handleChange} maxLength={255} className="mt-1 h-8 text-sm" />
+          {fieldErrors.full_name && <p className="text-xs text-destructive mt-0.5">{fieldErrors.full_name}</p>}
+          <MaxLengthWarning value={form.full_name} max={255} />
         </div>
         <div className="col-span-2 sm:col-span-1">
           <Label htmlFor="phone" className="text-xs">Phone <span className="text-destructive">*</span></Label>
-          <Input id="phone" name="phone" value={form.phone} onChange={handleChange} required className="mt-1 h-8 text-sm" />
+          <Input id="phone" name="phone" value={form.phone} onChange={handleChange} maxLength={20} className="mt-1 h-8 text-sm" />
+          {fieldErrors.phone && <p className="text-xs text-destructive mt-0.5">{fieldErrors.phone}</p>}
+          <MaxLengthWarning value={form.phone} max={20} />
         </div>
         <div className="col-span-2">
           <Label htmlFor="address_line_1" className="text-xs">Address <span className="text-destructive">*</span></Label>
-          <Input id="address_line_1" name="address_line_1" value={form.address_line_1} onChange={handleChange} required className="mt-1 h-8 text-sm" />
+          <Input id="address_line_1" name="address_line_1" value={form.address_line_1} onChange={handleChange} maxLength={255} className="mt-1 h-8 text-sm" />
+          {fieldErrors.address_line_1 && <p className="text-xs text-destructive mt-0.5">{fieldErrors.address_line_1}</p>}
+          <MaxLengthWarning value={form.address_line_1} max={255} />
         </div>
         <div className="col-span-2">
           <Label htmlFor="address_line_2" className="text-xs">Apartment, suite, etc.</Label>
-          <Input id="address_line_2" name="address_line_2" value={form.address_line_2} onChange={handleChange} className="mt-1 h-8 text-sm" />
+          <Input id="address_line_2" name="address_line_2" value={form.address_line_2} onChange={handleChange} maxLength={255} className="mt-1 h-8 text-sm" />
+          {fieldErrors.address_line_2 && <p className="text-xs text-destructive mt-0.5">{fieldErrors.address_line_2}</p>}
+          <MaxLengthWarning value={form.address_line_2} max={255} />
         </div>
         <div>
           <Label htmlFor="city" className="text-xs">City <span className="text-destructive">*</span></Label>
-          <Input id="city" name="city" value={form.city} onChange={handleChange} required className="mt-1 h-8 text-sm" />
+          <Input id="city" name="city" value={form.city} onChange={handleChange} maxLength={100} className="mt-1 h-8 text-sm" />
+          {fieldErrors.city && <p className="text-xs text-destructive mt-0.5">{fieldErrors.city}</p>}
+          <MaxLengthWarning value={form.city} max={100} />
         </div>
         <div>
           <Label htmlFor="state" className="text-xs">State / Division <span className="text-destructive">*</span></Label>
-          <Input id="state" name="state" value={form.state} onChange={handleChange} required className="mt-1 h-8 text-sm" />
+          <Input id="state" name="state" value={form.state} onChange={handleChange} maxLength={100} className="mt-1 h-8 text-sm" />
+          {fieldErrors.state && <p className="text-xs text-destructive mt-0.5">{fieldErrors.state}</p>}
+          <MaxLengthWarning value={form.state} max={100} />
         </div>
         <div>
           <Label htmlFor="postal_code" className="text-xs">Postal code <span className="text-destructive">*</span></Label>
-          <Input id="postal_code" name="postal_code" value={form.postal_code} onChange={handleChange} required className="mt-1 h-8 text-sm" />
+          <Input id="postal_code" name="postal_code" value={form.postal_code} onChange={handleChange} maxLength={20} className="mt-1 h-8 text-sm" />
+          {fieldErrors.postal_code && <p className="text-xs text-destructive mt-0.5">{fieldErrors.postal_code}</p>}
+          <MaxLengthWarning value={form.postal_code} max={20} />
         </div>
         <div>
           <Label htmlFor="label" className="text-xs">Label (e.g. Home)</Label>
-          <Input id="label" name="label" value={form.label} onChange={handleChange} placeholder="Optional" className="mt-1 h-8 text-sm" />
+          <Input id="label" name="label" value={form.label} onChange={handleChange} placeholder="Optional" maxLength={50} className="mt-1 h-8 text-sm" />
+          {fieldErrors.label && <p className="text-xs text-destructive mt-0.5">{fieldErrors.label}</p>}
+          <MaxLengthWarning value={form.label} max={50} />
         </div>
       </div>
       <div className="flex gap-2 pt-1">
@@ -317,7 +365,9 @@ export default function CheckoutPage() {
                         onChange={(e) => { setCouponCode(e.target.value); setCouponError(null) }}
                         onKeyDown={(e) => e.key === 'Enter' && handleCouponApply()}
                         className={couponCode ? 'pr-8' : ''}
+                        maxLength={50}
                       />
+                      <MaxLengthWarning value={couponCode} max={50} />
                       {couponCode && (
                         <button
                           type="button"

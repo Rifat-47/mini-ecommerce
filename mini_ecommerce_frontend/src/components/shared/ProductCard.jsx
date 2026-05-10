@@ -3,6 +3,7 @@ import { ShoppingCart, Heart } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipProvider } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import useCartStore from '@/store/cartStore'
 import useWishlistStore from '@/store/wishlistStore'
@@ -57,9 +58,10 @@ export default function ProductCard({ product }) {
   }
 
   return (
+    <TooltipProvider>
     <Link
       to={`/products/${id}`}
-      className="group flex flex-col bg-card border border-border rounded-xl overflow-hidden hover:shadow-md transition-shadow duration-200"
+      className="group flex flex-col bg-card border border-border rounded-xl overflow-hidden hover:shadow-md transition-shadow duration-200 h-full"
     >
       {/* Image */}
       <div className="relative aspect-square bg-secondary overflow-hidden">
@@ -105,9 +107,11 @@ export default function ProductCard({ product }) {
 
       {/* Content */}
       <div className="flex flex-col flex-1 p-4 gap-2">
-        <h3 className="font-medium text-sm text-foreground line-clamp-2 leading-snug">
-          {name}
-        </h3>
+        <Tooltip content={name}>
+          <h3 className="font-medium text-sm text-foreground line-clamp-2 leading-snug break-words min-h-[2.5rem]">
+            {name}
+          </h3>
+        </Tooltip>
 
         {/* Rating */}
         {average_rating > 0 && (
@@ -144,5 +148,6 @@ export default function ProductCard({ product }) {
         </Button>
       </div>
     </Link>
+    </TooltipProvider>
   )
 }

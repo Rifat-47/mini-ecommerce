@@ -241,6 +241,28 @@ Pass the access token in the `Authorization` header for authenticated endpoints:
 Authorization: Bearer <your_access_token>
 ```
 
+**Validation rules:** All endpoints enforce the following field-level constraints (violations return HTTP 400):
+
+| Field | Min length | Max length | Applies to |
+|-------|-----------|-----------|------------|
+| `password` | 8 | — | Register, profile update, reset password |
+| `first_name` | — | 150 | Register, profile update, user/admin create |
+| `last_name` | — | 150 | Register, profile update, user/admin create |
+| `name` (category/product) | 2 | 100 | Category/product create/update |
+| `description` (category/product) | — | 2000 | Category/product create/update |
+| `full_name` | 2 | 255 | Address create/update |
+| `phone` | 7 | 20 | Address create/update |
+| `address_line_1` | 5 | 255 | Address create/update |
+| `address_line_2` | — | 255 | Address create/update |
+| `city` | 2 | 100 | Address create/update |
+| `state` | 2 | 100 | Address create/update |
+| `postal_code` | 3 | 20 | Address create/update |
+| `country` | 2 | 100 | Address create/update |
+| `label` | — | 50 | Address create/update |
+| `comment` | — | 1000 | Product review |
+| `reason` | 10 | 1000 | Return request |
+| `code` (coupon) | 3 | 50 | Coupon create/update |
+
 All list endpoints are **paginated** (default: 20 items/page):
 ```json
 { "count": 85, "next": "...?page=2", "previous": null, "results": [...] }

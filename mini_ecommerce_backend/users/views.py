@@ -2,6 +2,7 @@ from rest_framework import status, views, permissions, generics
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 from rest_framework.throttling import AnonRateThrottle
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import get_user_model, authenticate
 from django.utils import timezone
 from .models import UserAddress, AuditLog
@@ -96,11 +97,18 @@ class CustomAuthToken(views.APIView):
             }, status=status.HTTP_200_OK)
 
         refresh = RefreshToken.for_user(user)
+        avatar_url = None
+        if user.avatar:
+            url = user.avatar.url
+            avatar_url = url if url.startswith('http') else request.build_absolute_uri(url)
         return Response({
             'access': str(refresh.access_token),
             'refresh': str(refresh),
+            'id': user.id,
             'role': user.role,
             'email': user.email,
+            'first_name': user.first_name,
+            'avatar_url': avatar_url,
             'requires_2fa': False,
         })
 
@@ -180,6 +188,10 @@ class ResetPasswordConfirmView(views.APIView):
         new_password = request.data.get('new_password')
         if not new_password:
             return Response({'error': 'New password is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(new_password) < 8:
+            return Response({'error': 'Password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(new_password) > 20:
+            return Response({'error': 'Password must be at most 20 characters.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             user_id = force_str(urlsafe_base64_decode(uid))
@@ -209,6 +221,10 @@ class ResetPasswordView(views.APIView):
 
         if not old_password or not new_password:
             return Response({'error': 'Both old_password and new_password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(new_password) < 8:
+            return Response({'error': 'Password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(new_password) > 20:
+            return Response({'error': 'Password must be at most 20 characters.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not user.check_password(old_password):
             return Response({'error': 'Wrong old password'}, status=status.HTTP_400_BAD_REQUEST)
@@ -221,6 +237,42 @@ class ResetPasswordView(views.APIView):
         user.set_password(new_password)
         user.save()
         return Response({'message': 'Password reset successful'}, status=status.HTTP_200_OK)
+
+
+class AvatarUploadView(views.APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    parser_classes = (MultiPartParser, FormParser)
+
+    ALLOWED_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
+    MAX_SIZE = 2 * 1024 * 1024  # 2 MB
+
+    def post(self, request):
+        file = request.FILES.get('avatar')
+        if not file:
+            return Response({'error': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
+        if file.content_type not in self.ALLOWED_TYPES:
+            return Response({'error': 'Only JPG, PNG, and WebP images are allowed.'}, status=status.HTTP_400_BAD_REQUEST)
+        if file.size > self.MAX_SIZE:
+            return Response({'error': 'Image must be under 2 MB.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        if user.avatar:
+            user.avatar.delete(save=False)
+
+        user.avatar = file
+        user.save(update_fields=['avatar'])
+
+        url = user.avatar.url
+        avatar_url = url if url.startswith('http') else request.build_absolute_uri(url)
+        return Response({'avatar_url': avatar_url}, status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        user = request.user
+        if user.avatar:
+            user.avatar.delete(save=False)
+            user.avatar = None
+            user.save(update_fields=['avatar'])
+        return Response({'message': 'Avatar removed.'}, status=status.HTTP_200_OK)
 
 
 class AdminUserListView(generics.ListCreateAPIView):

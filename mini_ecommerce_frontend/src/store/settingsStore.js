@@ -2,9 +2,9 @@ import { create } from 'zustand'
 import api from '@/api/axios'
 
 const DEFAULTS = {
-  store_name: 'Ethereal Asteroid',
-  support_email: 'support@ethereal-asteroid.com',
-  from_email: 'noreply@ecommerce.com',
+  store_name: '',
+  support_email: '',
+  from_email: '',
   contact_phone: '',
   currency: 'BDT',
   tax_rate: 0,

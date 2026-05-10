@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import ErrorMessage from '@/components/shared/ErrorMessage'
+import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
 import DateOfBirthPicker from '@/components/shared/DateOfBirthPicker'
 import useAuthStore from '@/store/authStore'
 import useCartStore from '@/store/cartStore'
@@ -30,20 +31,35 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   function handleChange(e) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    const { name, value } = e.target
+    setForm((prev) => ({ ...prev, [name]: value }))
+    setFieldErrors((prev) => ({ ...prev, [name]: '' }))
+  }
+
+  function validate() {
+    const errors = {}
+    if (!form.email.trim()) errors.email = 'Email is required.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Enter a valid email address.'
+    if (!form.password) errors.password = 'Password is required.'
+    else if (form.password.length < 8) errors.password = 'Password must be at least 8 characters.'
+    else if (form.password.length > 20) errors.password = 'Password must be at most 20 characters.'
+    return errors
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    const errors = validate()
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setIsLoading(true)
     try {
       const payload = { ...form }
       if (!payload.date_of_birth) delete payload.date_of_birth
       await api.post('/auth/register/', payload)
-      // Auto-login after registration
       await login(form.email, form.password)
       await Promise.allSettled([syncCart(), syncWishlist()])
       navigate('/', { replace: true })
@@ -64,7 +80,7 @@ export default function RegisterPage() {
       <CardContent className="pt-4">
         <ErrorMessage error={error} className="mb-4" />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="first_name">First name</Label>
@@ -74,9 +90,11 @@ export default function RegisterPage() {
                 placeholder="John"
                 value={form.first_name}
                 onChange={handleChange}
+                maxLength={25}
                 autoFocus
                 autoComplete="given-name"
               />
+              <MaxLengthWarning value={form.first_name} max={25} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="last_name">Last name</Label>
@@ -86,8 +104,10 @@ export default function RegisterPage() {
                 placeholder="Doe"
                 value={form.last_name}
                 onChange={handleChange}
+                maxLength={25}
                 autoComplete="family-name"
               />
+              <MaxLengthWarning value={form.last_name} max={25} />
             </div>
           </div>
 
@@ -102,9 +122,9 @@ export default function RegisterPage() {
               placeholder="you@example.com"
               value={form.email}
               onChange={handleChange}
-              required
               autoComplete="email"
             />
+            {fieldErrors.email && <p className="text-sm text-destructive">{fieldErrors.email}</p>}
           </div>
 
           <div className="space-y-1.5">
@@ -116,11 +136,11 @@ export default function RegisterPage() {
                 id="password"
                 name="password"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Min. 8 characters"
+                placeholder="8–20 characters"
                 value={form.password}
                 onChange={handleChange}
-                required
                 autoComplete="new-password"
+                maxLength={20}
                 className="pr-10"
               />
               <button
@@ -132,6 +152,7 @@ export default function RegisterPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {fieldErrors.password && <p className="text-sm text-destructive">{fieldErrors.password}</p>}
           </div>
 
           <div className="space-y-1.5">

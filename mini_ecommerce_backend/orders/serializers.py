@@ -44,6 +44,9 @@ class CouponSerializer(serializers.ModelSerializer):
             'applicable_categories', 'user', 'user_email', 'created_at',
         ]
         read_only_fields = ['id', 'times_used', 'user_email', 'created_at']
+        extra_kwargs = {
+            'code': {'min_length': 3, 'max_length': 50},
+        }
 
 
 def _apply_coupon_rules(coupon, cart_total, cart_category_ids, user, field_name='code'):
@@ -439,6 +442,9 @@ class ReturnRequestSerializer(serializers.ModelSerializer):
             'refund_status', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'order_id', 'order_total', 'status', 'admin_note', 'refund_status', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'reason': {'min_length': 10, 'max_length': 1000},
+        }
 
 
 class AdminReturnUpdateSerializer(serializers.ModelSerializer):

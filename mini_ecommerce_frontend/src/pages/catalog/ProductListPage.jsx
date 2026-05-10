@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Tooltip, TooltipProvider } from '@/components/ui/tooltip'
 import ProductCard from '@/components/shared/ProductCard'
 import Pagination from '@/components/shared/Pagination'
 import EmptyState from '@/components/shared/EmptyState'
@@ -41,22 +42,26 @@ function FilterPanel({ categories, params, onParamChange, onReset }) {
       {/* Category */}
       <div>
         <h3 className="font-medium text-sm mb-3">Category</h3>
-        <div className="space-y-2">
-          {categories.map((cat) => (
-            <div key={cat.id} className="flex items-center gap-2">
-              <Checkbox
-                id={`cat-${cat.id}`}
-                checked={params.category === String(cat.id)}
-                onCheckedChange={(checked) =>
-                  onParamChange('category', checked ? String(cat.id) : '')
-                }
-              />
-              <Label htmlFor={`cat-${cat.id}`} className="text-sm font-normal cursor-pointer">
-                {cat.name}
-              </Label>
-            </div>
-          ))}
-        </div>
+        <TooltipProvider>
+          <div className="space-y-2">
+            {categories.map((cat) => (
+              <div key={cat.id} className="flex items-center gap-2 min-w-0">
+                <Checkbox
+                  id={`cat-${cat.id}`}
+                  checked={params.category === String(cat.id)}
+                  onCheckedChange={(checked) =>
+                    onParamChange('category', checked ? String(cat.id) : '')
+                  }
+                />
+                <Tooltip content={cat.name.length > 22 ? cat.name : undefined}>
+                  <Label htmlFor={`cat-${cat.id}`} className="text-sm font-normal cursor-pointer truncate min-w-0">
+                    {cat.name}
+                  </Label>
+                </Tooltip>
+              </div>
+            ))}
+          </div>
+        </TooltipProvider>
       </div>
 
       {/* Price range */}
@@ -173,7 +178,10 @@ export default function ProductListPage() {
   }, [fetchProducts])
 
   useEffect(() => {
-    api.get('/categories/').then(({ data }) => setCategories(data.results ?? data)).catch(() => {})
+    api.get('/categories/').then(({ data }) => {
+      const list = data.results ?? data
+      setCategories(Array.isArray(list) ? list : [])
+    }).catch(() => {})
   }, [])
 
   // Keep the page's search input in sync when the URL search param changes externally (e.g. navbar search)

@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import StarRating from '@/components/shared/StarRating'
 import ErrorMessage from '@/components/shared/ErrorMessage'
+import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
 import api from '@/api/axios'
 import useCartStore from '@/store/cartStore'
 import useWishlistStore from '@/store/wishlistStore'
@@ -64,10 +65,15 @@ function ReviewForm({ productId, onSubmitted }) {
   const [comment, setComment] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!rating) { setError({ error: 'Please select a rating.' }); return }
+    const errors = {}
+    if (!rating) errors.rating = 'Please select a rating.'
+    if (comment.length > 1000) errors.comment = 'Comment must be at most 1000 characters.'
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setError(null)
     setLoading(true)
     try {
@@ -84,14 +90,20 @@ function ReviewForm({ productId, onSubmitted }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 mt-6 border-t border-border pt-6">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4 mt-6 border-t border-border pt-6">
       <h3 className="font-semibold">Write a review</h3>
       <ErrorMessage error={error} />
       <div>
         <p className="text-sm text-muted-foreground mb-1.5">Your rating</p>
-        <StarRating value={rating} interactive onChange={setRating} size="lg" />
+        <StarRating value={rating} interactive onChange={v => { setRating(v); setFieldErrors(f => ({ ...f, rating: '' })) }} size="lg" />
+        {fieldErrors.rating && <p className="text-sm text-destructive mt-1">{fieldErrors.rating}</p>}
       </div>
-      <Textarea placeholder="Share your experience (optional)" value={comment} onChange={(e) => setComment(e.target.value)} rows={3} />
+      <div>
+        <Textarea placeholder="Share your experience (optional)" value={comment} onChange={(e) => { setComment(e.target.value); setFieldErrors(f => ({ ...f, comment: '' })) }} rows={3} maxLength={1000} />
+        {fieldErrors.comment && <p className="text-sm text-destructive mt-1">{fieldErrors.comment}</p>}
+        <MaxLengthWarning value={comment} max={1000} />
+        <p className="text-xs text-muted-foreground mt-1 text-right">{comment.length}/1000</p>
+      </div>
       <Button type="submit" disabled={loading}>{loading ? 'Submitting...' : 'Submit Review'}</Button>
     </form>
   )

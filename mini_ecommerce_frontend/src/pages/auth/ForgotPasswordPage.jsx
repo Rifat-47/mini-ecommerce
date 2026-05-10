@@ -13,10 +13,21 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
+
+  function validate() {
+    const errors = {}
+    if (!email.trim()) errors.email = 'Email is required.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Enter a valid email address.'
+    return errors
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    const errors = validate()
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setIsLoading(true)
     try {
       await api.post('/auth/forgot-password/', { email })
@@ -62,7 +73,7 @@ export default function ForgotPasswordPage() {
       <CardContent className="pt-4">
         <ErrorMessage error={error} className="mb-4" />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
             <Input
@@ -70,11 +81,11 @@ export default function ForgotPasswordPage() {
               type="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              onChange={(e) => { setEmail(e.target.value); setFieldErrors((f) => ({ ...f, email: '' })) }}
               autoFocus
               autoComplete="email"
             />
+            {fieldErrors.email && <p className="text-sm text-destructive">{fieldErrors.email}</p>}
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
