@@ -5,9 +5,9 @@ class SiteSettings(models.Model):
     """Singleton model — always use SiteSettings.get() instead of direct queries."""
 
     # ── Store identity ────────────────────────────────────────────────────────
-    store_name    = models.CharField(max_length=100, default='Ethereal Asteroid')
-    support_email = models.EmailField(default='support@ethereal-asteroid.com')
-    from_email    = models.EmailField(default='noreply@ecommerce.com')
+    store_name    = models.CharField(max_length=100, blank=True, default='')
+    support_email = models.EmailField(blank=True, default='')
+    from_email    = models.EmailField(blank=True, default='')
     contact_phone = models.CharField(max_length=30, blank=True, default='')
     currency      = models.CharField(max_length=10, default='BDT')
     tax_rate      = models.DecimalField(max_digits=5, decimal_places=2, default=0)
@@ -39,7 +39,7 @@ class SiteSettings(models.Model):
         verbose_name_plural = 'Site Settings'
 
     def __str__(self):
-        return self.store_name
+        return self.store_name or 'Site Settings'
 
     @classmethod
     def get(cls):
