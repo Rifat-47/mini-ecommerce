@@ -4,7 +4,7 @@ import { ShoppingCart, Bell, Sun, Moon, Menu, Search, X, LogOut, User, Heart, Pa
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import {
   DropdownMenu,
@@ -307,18 +307,17 @@ export default function Navbar() {
             {/* User menu (desktop) */}
             {accessToken ? (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="hidden md:flex items-center gap-2 pl-2 pr-3">
-                    <Avatar className="h-7 w-7">
-                      <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm font-medium max-w-[100px] truncate">
-                      {user?.first_name || user?.email}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </Button>
+                <DropdownMenuTrigger className="hidden md:flex items-center gap-2 pl-2 pr-3 rounded-lg hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 transition-colors">
+                  <Avatar className="h-7 w-7">
+                    {user?.avatar && <AvatarImage src={user.avatar} alt={user.first_name || user.email} />}
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium max-w-[100px] truncate">
+                    {user?.first_name || user?.email}
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem onClick={() => navigate('/profile')}>
@@ -360,10 +359,8 @@ export default function Navbar() {
 
             {/* Mobile hamburger */}
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden" aria-label="Menu">
-                  <Menu className="h-5 w-5" />
-                </Button>
+              <SheetTrigger className="md:hidden flex items-center justify-center size-8 rounded-lg hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 transition-colors" aria-label="Menu">
+                <Menu className="h-5 w-5" />
               </SheetTrigger>
               <SheetContent side="right" className="w-72 p-0">
                 <div className="flex flex-col h-full">
@@ -372,6 +369,7 @@ export default function Navbar() {
                     {accessToken ? (
                       <>
                         <Avatar className="h-10 w-10">
+                          {user?.avatar && <AvatarImage src={user.avatar} alt={user.first_name || user.email} />}
                           <AvatarFallback className="bg-primary text-primary-foreground">
                             {initials}
                           </AvatarFallback>

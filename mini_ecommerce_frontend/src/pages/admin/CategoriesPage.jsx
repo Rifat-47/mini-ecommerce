@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import ErrorMessage from '@/components/shared/ErrorMessage'
-import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
+import TableSkeleton from '@/components/shared/TableSkeleton'
 import useUnsavedChanges from '@/hooks/useUnsavedChanges.jsx'
 import api from '@/api/axios'
 
@@ -28,10 +29,23 @@ function CategoryForm({ initial, onSave, onClose, markDirty, confirmClose }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
+
+  function validate() {
+    const errors = {}
+    if (!form.name.trim()) errors.name = 'Name is required.'
+    else if (form.name.trim().length < 2) errors.name = 'Name must be at least 2 characters.'
+    else if (form.name.length > 100) errors.name = 'Name must be at most 100 characters.'
+    if (form.description.length > 2000) errors.description = 'Description must be at most 2000 characters.'
+    return errors
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    const errors = validate()
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setSaving(true)
     try {
       isEdit
@@ -48,25 +62,30 @@ function CategoryForm({ initial, onSave, onClose, markDirty, confirmClose }) {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <ErrorMessage error={error} />
         <div className="space-y-1.5">
-          <Label>Name *</Label>
+          <Label>Name <span className="text-destructive">*</span></Label>
           <Input
             value={form.name}
-            onChange={e => { setForm(f => ({ ...f, name: e.target.value })); markDirty() }}
-            required
+            onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setFieldErrors(f => ({ ...f, name: '' })); markDirty() }}
+            maxLength={100}
             placeholder="e.g. Electronics"
           />
+          {fieldErrors.name && <p className="text-sm text-destructive mt-1">{fieldErrors.name}</p>}
+          <MaxLengthWarning value={form.name} max={100} />
         </div>
         <div className="space-y-1.5">
           <Label>Description</Label>
           <Textarea
             value={form.description}
-            onChange={e => { setForm(f => ({ ...f, description: e.target.value })); markDirty() }}
+            onChange={e => { setForm(f => ({ ...f, description: e.target.value })); setFieldErrors(f => ({ ...f, description: '' })); markDirty() }}
             placeholder="Optional description"
+            maxLength={2000}
             rows={3}
           />
+          {fieldErrors.description && <p className="text-sm text-destructive mt-1">{fieldErrors.description}</p>}
+          <MaxLengthWarning value={form.description} max={2000} />
         </div>
         <div className="space-y-1.5">
           <Label>Status</Label>
@@ -159,7 +178,7 @@ export default function CategoriesPage() {
         </Button>
       </div>
 
-      {loading ? <LoadingSpinner /> : (
+      {loading ? <TableSkeleton cols={5} /> : (
         <div className="rounded-xl border border-border overflow-hidden">
           <Table>
             <TableHeader>
@@ -181,7 +200,7 @@ export default function CategoriesPage() {
               ) : categories.map(cat => (
                 <TableRow key={cat.id}>
                   <TableCell className="text-sm text-muted-foreground">{cat.id}</TableCell>
-                  <TableCell className="font-medium text-sm">{cat.name}</TableCell>
+                  <TableCell className="font-medium text-sm max-w-[200px] truncate" title={cat.name}>{cat.name}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground max-w-xs truncate">
                     {cat.description || '—'}
                   </TableCell>

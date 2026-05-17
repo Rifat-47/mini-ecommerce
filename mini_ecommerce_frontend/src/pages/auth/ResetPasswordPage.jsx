@@ -18,16 +18,24 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState({})
+
+  function validate() {
+    const errors = {}
+    if (!newPassword) errors.new_password = 'New password is required.'
+    else if (newPassword.length < 8) errors.new_password = 'Password must be at least 8 characters.'
+    else if (newPassword.length > 20) errors.new_password = 'Password must be at most 20 characters.'
+    if (!confirmPassword) errors.confirm_password = 'Please confirm your password.'
+    else if (newPassword !== confirmPassword) errors.confirm_password = 'Passwords do not match.'
+    return errors
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
-
-    if (newPassword !== confirmPassword) {
-      setError({ error: 'Passwords do not match.' })
-      return
-    }
-
+    const errors = validate()
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setIsLoading(true)
     try {
       await api.post(`/auth/reset-password/${uid}/${token}/`, { new_password: newPassword })
@@ -71,19 +79,19 @@ export default function ResetPasswordPage() {
       <CardContent className="pt-4">
         <ErrorMessage error={error} className="mb-4" />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="new_password">New password <span className="text-destructive">*</span></Label>
             <div className="relative">
               <Input
                 id="new_password"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Min. 8 characters"
+                placeholder="8–20 characters"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
+                onChange={(e) => { setNewPassword(e.target.value); setFieldErrors((f) => ({ ...f, new_password: '' })) }}
                 autoFocus
                 autoComplete="new-password"
+                maxLength={20}
                 className="pr-10"
               />
               <button
@@ -95,6 +103,7 @@ export default function ResetPasswordPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {fieldErrors.new_password && <p className="text-sm text-destructive">{fieldErrors.new_password}</p>}
           </div>
 
           <div className="space-y-1.5">
@@ -104,10 +113,11 @@ export default function ResetPasswordPage() {
               type={showPassword ? 'text' : 'password'}
               placeholder="Repeat new password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
+              onChange={(e) => { setConfirmPassword(e.target.value); setFieldErrors((f) => ({ ...f, confirm_password: '' })) }}
               autoComplete="new-password"
+              maxLength={20}
             />
+            {fieldErrors.confirm_password && <p className="text-sm text-destructive">{fieldErrors.confirm_password}</p>}
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>

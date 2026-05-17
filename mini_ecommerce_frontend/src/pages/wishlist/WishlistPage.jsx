@@ -2,11 +2,13 @@ import { Link } from 'react-router-dom'
 import { Heart, ShoppingCart, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import EmptyState from '@/components/shared/EmptyState'
 import useWishlistStore from '@/store/wishlistStore'
 import useCartStore from '@/store/cartStore'
 import useAuthStore from '@/store/authStore'
 import api from '@/api/axios'
+import { getErrorMessage } from '@/lib/errors'
 
 function WishlistItem({ item, isAuthenticated }) {
   const removeItem = useWishlistStore((s) => s.removeItem)
@@ -27,29 +29,34 @@ function WishlistItem({ item, isAuthenticated }) {
         removeItem(item.product_id)
         toast.success('Moved to cart')
         return
-      } catch {
-        // Fallback to local approach
+      } catch (err) {
+        toast.error(getErrorMessage(err, 'Failed to move to cart'))
+        return
       }
     }
     // Guest: add to cart locally and remove from wishlist
-    addCartItem({
-      id: item.product_id,
-      name: item.name,
-      price: item.price,
-      discount_percentage: item.discount_percentage,
-      stock: item.stock,
-      images: item.image ? [{ is_primary: true, image: item.image }] : [],
-    })
-    isAuthenticated ? removeFromBackend(item.product_id) : removeItem(item.product_id)
-    toast.success('Moved to cart')
+    try {
+      await addCartItem({
+        id: item.product_id,
+        name: item.name,
+        price: item.price,
+        discount_percentage: item.discount_percentage,
+        stock: item.stock,
+        images: item.image ? [{ is_primary: true, image: item.image }] : [],
+      })
+      isAuthenticated ? removeFromBackend(item.product_id) : removeItem(item.product_id)
+      toast.success('Moved to cart')
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to move to cart'))
+    }
   }
 
   async function handleRemove() {
     try {
       isAuthenticated ? await removeFromBackend(item.product_id) : removeItem(item.product_id)
       toast.success('Removed from wishlist')
-    } catch {
-      toast.error('Failed to remove from wishlist')
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to remove from wishlist'))
     }
   }
 
@@ -58,10 +65,22 @@ function WishlistItem({ item, isAuthenticated }) {
       <Link to={`/products/${item.product_id}`} className="shrink-0">
         <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg bg-secondary overflow-hidden">
           {item.image ? (
-            <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">No img</div>
-          )}
+            <img
+              src={item.image}
+              alt={item.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+                e.currentTarget.nextSibling.style.display = 'flex'
+              }}
+            />
+          ) : null}
+          <div
+            className="w-full h-full items-center justify-center text-xs text-muted-foreground"
+            style={{ display: item.image ? 'none' : 'flex' }}
+          >
+            No img
+          </div>
         </div>
       </Link>
 
@@ -107,7 +126,26 @@ function WishlistItem({ item, isAuthenticated }) {
 
 export default function WishlistPage() {
   const items = useWishlistStore((s) => s.items)
+  const isSyncing = useWishlistStore((s) => s.isSyncing)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated())
+
+  if (isSyncing) {
+    return (
+      <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto space-y-3">
+        <Skeleton className="h-8 w-40 mb-6" />
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex gap-4 bg-card border border-border rounded-xl p-4">
+            <Skeleton className="w-24 h-24 rounded-lg shrink-0" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/4" />
+              <Skeleton className="h-7 w-28 mt-auto" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   if (items.length === 0) {
     return (

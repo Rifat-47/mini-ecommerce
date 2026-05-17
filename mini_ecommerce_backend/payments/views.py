@@ -27,7 +27,7 @@ class InitiatePaymentView(APIView):
             return Response({'error': 'order_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            order = Order.objects.get(pk=order_id, user=request.user)
+            order = Order.objects.get(public_id=order_id, user=request.user)
         except Order.DoesNotExist:
             return Response({'error': 'Order not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -88,7 +88,7 @@ class PaymentCallbackView(APIView):
             return redirect(f"{settings.FRONTEND_URL}/payment/failed?reason=missing_order_id")
 
         try:
-            payment = Payment.objects.get(shurjopay_order_id=sp_order_id)
+            payment = Payment.objects.select_related('order').get(shurjopay_order_id=sp_order_id)
         except Payment.DoesNotExist:
             return redirect(f"{settings.FRONTEND_URL}/payment/failed?reason=payment_not_found")
 
@@ -129,7 +129,7 @@ class PaymentCallbackView(APIView):
             self._send_payment_confirmation(payment)
             notify(payment.order.user, 'payment_success',
                    f'Payment Confirmed — Order #{payment.order_id}',
-                   f'Your payment of BDT {payment.amount} for Order #{payment.order_id} was successful.')
+                   f'Your payment of BDT {payment.amount:.2f} for Order #{payment.order_id} was successful.')
         elif payment.status == 'failed':
             self._send_payment_failure(payment)
             notify(payment.order.user, 'payment_failed',
@@ -152,7 +152,7 @@ class PaymentCallbackView(APIView):
             f'Payment Confirmed — Order #{order.id}',
             (
                 f'Hi {order.user.first_name or order.user.email},\n\n'
-                f'Your payment of BDT {payment.amount} for Order #{order.id} has been received.\n'
+                f'Your payment of BDT {payment.amount:.2f} for Order #{order.id} has been received.\n'
                 f'Your order is now being processed.\n\n'
                 f'Transaction ID: {payment.transaction_id}\n'
                 f'Payment Method: {payment.payment_method}\n\n'
@@ -195,11 +195,12 @@ class PaymentCallbackView(APIView):
 
     def _redirect_url(self, payment):
         base = settings.FRONTEND_URL
+        public_id = payment.order.public_id
         if payment.status == 'completed':
-            return f'{base}/payment/success?order_id={payment.order_id}'
+            return f'{base}/payment/success?order_id={public_id}'
         if payment.status == 'cancelled':
-            return f'{base}/payment/cancelled?order_id={payment.order_id}'
-        return f'{base}/payment/failed?order_id={payment.order_id}'
+            return f'{base}/payment/cancelled?order_id={public_id}'
+        return f'{base}/payment/failed?order_id={public_id}'
 
 
 class VerifyPaymentView(APIView):
@@ -208,7 +209,7 @@ class VerifyPaymentView(APIView):
 
     def post(self, request, order_id):
         try:
-            order = Order.objects.get(pk=order_id, user=request.user)
+            order = Order.objects.get(public_id=order_id, user=request.user)
         except Order.DoesNotExist:
             return Response({'error': 'Order not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -236,7 +237,7 @@ class OrderPaymentStatusView(APIView):
 
     def get(self, request, order_id):
         try:
-            order = Order.objects.get(pk=order_id, user=request.user)
+            order = Order.objects.get(public_id=order_id, user=request.user)
         except Order.DoesNotExist:
             return Response({'error': 'Order not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -261,7 +262,7 @@ class CashOnDeliveryView(APIView):
             return Response({'error': 'order_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            order = Order.objects.get(pk=order_id, user=request.user)
+            order = Order.objects.get(public_id=order_id, user=request.user)
         except Order.DoesNotExist:
             return Response({'error': 'Order not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -303,7 +304,7 @@ class CashOnDeliveryView(APIView):
                 (
                     f'Hi {order.user.first_name or order.user.email},\n\n'
                     f'Your order #{order.id} has been confirmed with Cash on Delivery.\n'
-                    f'Total amount due on delivery: {cfg.currency} {order.total_amount}\n\n'
+                    f'Total amount due on delivery: {cfg.currency} {order.total_amount:.2f}\n\n'
                     f'Please find your invoice attached.\n\n'
                     f'— The {cfg.store_name} Team'
                 ),
@@ -314,7 +315,7 @@ class CashOnDeliveryView(APIView):
             )
             notify(order.user, 'order_placed',
                    f'Order #{order.id} Confirmed — Cash on Delivery',
-                   f'Your order #{order.id} is confirmed. Pay BDT {order.total_amount} upon delivery.')
+                   f'Your order #{order.id} is confirmed. Pay BDT {order.total_amount:.2f} upon delivery.')
 
         return Response({
             'order_id': order.id,

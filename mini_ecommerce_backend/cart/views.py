@@ -14,7 +14,7 @@ class WishlistListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return WishlistItem.objects.filter(user=self.request.user).select_related('product').order_by('-added_at')
+        return WishlistItem.objects.filter(user=self.request.user).select_related('product').prefetch_related('product__images').order_by('-added_at')
 
 
 class WishlistItemDetailView(generics.DestroyAPIView):
@@ -73,7 +73,7 @@ class CartListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return CartItem.objects.filter(user=self.request.user).select_related('product').order_by('added_at')
+        return CartItem.objects.filter(user=self.request.user).select_related('product').prefetch_related('product__images').order_by('added_at')
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()

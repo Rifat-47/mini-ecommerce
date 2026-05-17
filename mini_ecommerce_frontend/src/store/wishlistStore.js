@@ -52,11 +52,12 @@ const useWishlistStore = create((set, get) => ({
   syncOnLogin: async () => {
     set({ isSyncing: true })
     try {
+      const { data: backendRaw } = await api.get('/wishlist/')
+      const backendWishlist = backendRaw.results ?? backendRaw
       const localItems = get().items
 
       // Push local-only items to backend
       if (localItems.length > 0) {
-        const { data: backendWishlist } = await api.get('/wishlist/')
         const backendProductIds = new Set(backendWishlist.map((i) => i.product))
         const localOnly = localItems.filter((i) => !backendProductIds.has(i.product_id))
 
@@ -66,14 +67,15 @@ const useWishlistStore = create((set, get) => ({
       }
 
       // Re-fetch final backend state and use it as source of truth
-      const { data: finalWishlist } = await api.get('/wishlist/')
+      const { data: finalRaw } = await api.get('/wishlist/')
+      const finalWishlist = finalRaw.results ?? finalRaw
       const synced = finalWishlist.map((item) => ({
         product_id: item.product,
         name: item.product_name,
         price: item.product_price,
         discount_percentage: item.product_discount_percentage,
         stock: item.product_stock,
-        image: null,
+        image: item.product_image || null,
         wishlist_item_id: item.id, // backend ID needed for DELETE
       }))
 
@@ -100,9 +102,10 @@ const useWishlistStore = create((set, get) => ({
 
     try {
       await api.delete(`/wishlist/${item.wishlist_item_id}/`)
-    } catch {
-      // Rollback on failure
+    } catch (err) {
+      // Rollback on failure and let caller handle the error
       set({ items: snapshot })
+      throw err
     }
   },
 

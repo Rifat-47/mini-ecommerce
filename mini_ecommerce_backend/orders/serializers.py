@@ -44,6 +44,9 @@ class CouponSerializer(serializers.ModelSerializer):
             'applicable_categories', 'user', 'user_email', 'created_at',
         ]
         read_only_fields = ['id', 'times_used', 'user_email', 'created_at']
+        extra_kwargs = {
+            'code': {'min_length': 3, 'max_length': 50},
+        }
 
 
 def _apply_coupon_rules(coupon, cart_total, cart_category_ids, user, field_name='code'):
@@ -57,7 +60,7 @@ def _apply_coupon_rules(coupon, cart_total, cart_category_ids, user, field_name=
 
     if coupon.min_order_value is not None and cart_total < coupon.min_order_value:
         raise serializers.ValidationError(
-            {field_name: f"Minimum order value of BDT {coupon.min_order_value} required for this coupon."}
+            {field_name: f"Minimum order value of BDT {coupon.min_order_value:.2f} required for this coupon."}
         )
 
     if coupon.first_time_only:
@@ -115,7 +118,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     def get_product_image(self, obj):
         request = self.context.get('request')
-        image = obj.product.images.filter(is_primary=True).first() or obj.product.images.first()
+        images = sorted(obj.product.images.all(), key=lambda img: not img.is_primary)
+        image = images[0] if images else None
         if image:
             return _absolute_url(image.image.url, request)
         return None
@@ -153,11 +157,11 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'user', 'user_email', 'shipping_address',
+            'id', 'public_id', 'user', 'user_email', 'shipping_address',
             'address_id', 'coupon_code', 'applied_coupon', 'discount_amount',
             'total_amount', 'status', 'created_at', 'items',
         ]
-        read_only_fields = ['user', 'discount_amount', 'total_amount', 'status', 'created_at']
+        read_only_fields = ['user', 'public_id', 'discount_amount', 'total_amount', 'status', 'created_at']
         extra_kwargs = {
             'shipping_address': {'required': False, 'allow_blank': True},
         }
@@ -282,7 +286,7 @@ class OrderSerializer(serializers.ModelSerializer):
         if coupon:
             if coupon.min_order_value is not None and subtotal < coupon.min_order_value:
                 raise serializers.ValidationError(
-                    {"coupon_code": f"Minimum order value of BDT {coupon.min_order_value} required for this coupon."}
+                    {"coupon_code": f"Minimum order value of BDT {coupon.min_order_value:.2f} required for this coupon."}
                 )
 
             item_category_ids = set(
@@ -322,7 +326,7 @@ class OrderSerializer(serializers.ModelSerializer):
             from config.models import SiteSettings
             cfg = SiteSettings.get()
             notify(user, 'order_placed', f'Order #{order_id} Placed',
-                   f'Your order #{order_id} has been placed successfully! Total: BDT {order_total}.')
+                   f'Your order #{order_id} has been placed successfully! Total: BDT {order_total:.2f}.')
             if cfg.email_notifications_enabled:
                 _email_async(
                     'Order Confirmation',
@@ -438,6 +442,9 @@ class ReturnRequestSerializer(serializers.ModelSerializer):
             'refund_status', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'order_id', 'order_total', 'status', 'admin_note', 'refund_status', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'reason': {'min_length': 10, 'max_length': 1000},
+        }
 
 
 class AdminReturnUpdateSerializer(serializers.ModelSerializer):
@@ -473,7 +480,7 @@ class AdminReturnUpdateSerializer(serializers.ModelSerializer):
                             (
                                 f'Hi {_user_name(order.user)},\n\n'
                                 f'Your return request for Order #{order.id} has been approved.\n'
-                                f'Your refund of BDT {order.total_amount} is being processed and will be '
+                                f'Your refund of BDT {order.total_amount:.2f} is being processed and will be '
                                 f'credited to your original payment method within 3–7 business days.\n\n'
                                 f'— The {cfg.store_name} Team'
                             ),

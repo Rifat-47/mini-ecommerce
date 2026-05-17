@@ -59,8 +59,13 @@ class Command(BaseCommand):
         count = 0
         for user in users:
             try:
+                if user.birthday_coupon_sent_year == today.year:
+                    continue
+
                 coupon = get_or_create_birthday_coupon(user, today, cfg)
                 expiry_str = coupon.expiry_date.strftime('%B %d, %Y')
+                user.birthday_coupon_sent_year = today.year
+                user.save(update_fields=['birthday_coupon_sent_year'])
 
                 if cfg.email_notifications_enabled:
                     _send_email(

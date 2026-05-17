@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import TableSkeleton from '@/components/shared/TableSkeleton'
 import { toast } from 'sonner'
 import api from '@/api/axios'
 
@@ -114,7 +114,7 @@ export default function StoresPage() {
     }
   }
 
-  if (loading) return <LoadingSpinner />
+  if (loading) return <div className="p-6"><TableSkeleton cols={5} /></div>
 
   return (
     <div className="space-y-4">
@@ -176,15 +176,11 @@ export default function StoresPage() {
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                        <DropdownMenuTrigger className="flex items-center justify-center h-8 w-8 rounded-lg hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 transition-colors">
+                          <MoreHorizontal className="h-4 w-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link to={`/platform/stores/${store.id}`}>View details</Link>
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => window.location.href = `/platform/stores/${store.id}`}>View details</DropdownMenuItem>
                           {store.status !== 'deleted' && (
                             <DropdownMenuItem onClick={() => handleResendInvite(store)}>
                               Send invitation

@@ -55,7 +55,7 @@ def create_payment(order, customer, client_ip='127.0.0.1'):
         'order_id': f'{settings.SHURJOPAY_PREFIX}-{order.id}',
         'currency': 'BDT',
         'client_ip': client_ip,
-        'customer_name': f'{customer.first_name} {customer.last_name}'.strip() or customer.email,
+        'customer_name': (f'{customer.first_name} {customer.last_name}'.strip() or customer.email)[:50],
         'customer_email': customer.email,
         'customer_address': str(order.shipping_address),
         'customer_phone': '01700000000',  # placeholder — update when phone field added to profile

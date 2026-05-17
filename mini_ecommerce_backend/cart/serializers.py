@@ -8,10 +8,18 @@ class WishlistItemSerializer(serializers.ModelSerializer):
     product_price = serializers.ReadOnlyField(source='product.price')
     product_discount_percentage = serializers.ReadOnlyField(source='product.discount_percentage')
     product_stock = serializers.ReadOnlyField(source='product.stock')
+    product_image = serializers.SerializerMethodField()
 
     class Meta:
         model = WishlistItem
-        fields = ['id', 'product', 'product_name', 'product_price', 'product_discount_percentage', 'product_stock', 'added_at']
+        fields = ['id', 'product', 'product_name', 'product_price', 'product_discount_percentage', 'product_stock', 'product_image', 'added_at']
+
+    def get_product_image(self, obj):
+        img = obj.product.images.filter(is_primary=True).first()
+        if not img:
+            return None
+        request = self.context.get('request')
+        return request.build_absolute_uri(img.image.url) if request else img.image.url
         read_only_fields = ['id', 'added_at']
 
     def validate_product(self, product):
@@ -29,11 +37,19 @@ class CartItemSerializer(serializers.ModelSerializer):
     product_price = serializers.ReadOnlyField(source='product.price')
     product_discount_percentage = serializers.ReadOnlyField(source='product.discount_percentage')
     product_stock = serializers.ReadOnlyField(source='product.stock')
+    product_image = serializers.SerializerMethodField()
     line_total = serializers.SerializerMethodField()
 
     class Meta:
         model = CartItem
-        fields = ['id', 'product', 'product_name', 'product_price', 'product_discount_percentage', 'product_stock', 'quantity', 'line_total', 'added_at']
+        fields = ['id', 'product', 'product_name', 'product_price', 'product_discount_percentage', 'product_stock', 'product_image', 'quantity', 'line_total', 'added_at']
+
+    def get_product_image(self, obj):
+        img = obj.product.images.filter(is_primary=True).first()
+        if not img:
+            return None
+        request = self.context.get('request')
+        return request.build_absolute_uri(img.image.url) if request else img.image.url
         read_only_fields = ['id', 'added_at']
 
     def get_line_total(self, obj):

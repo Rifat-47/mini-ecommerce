@@ -27,10 +27,22 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [twoFaCode, setTwoFaCode] = useState('')
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
+
+  function validateCredentials() {
+    const errors = {}
+    if (!email.trim()) errors.email = 'Email is required.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Enter a valid email address.'
+    if (!password) errors.password = 'Password is required.'
+    return errors
+  }
 
   async function handleCredentialsSubmit(e) {
     e.preventDefault()
     setError(null)
+    const errors = validateCredentials()
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     try {
       const result = await login(email, password)
       if (result.requires_2fa) {
@@ -77,7 +89,7 @@ export default function LoginPage() {
         <ErrorMessage error={error} className="mb-4" />
 
         {step === 'credentials' ? (
-          <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+          <form onSubmit={handleCredentialsSubmit} noValidate className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
               <Input
@@ -85,11 +97,11 @@ export default function LoginPage() {
                 type="email"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                onChange={(e) => { setEmail(e.target.value); setFieldErrors((f) => ({ ...f, email: '' })) }}
                 autoComplete="email"
                 autoFocus
               />
+              {fieldErrors.email && <p className="text-sm text-destructive">{fieldErrors.email}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -108,8 +120,7 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                  onChange={(e) => { setPassword(e.target.value); setFieldErrors((f) => ({ ...f, password: '' })) }}
                   autoComplete="current-password"
                   className="pr-10"
                 />
@@ -122,6 +133,7 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {fieldErrors.password && <p className="text-sm text-destructive">{fieldErrors.password}</p>}
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
@@ -130,19 +142,17 @@ export default function LoginPage() {
             </Button>
           </form>
         ) : (
-          <form onSubmit={handleTwoFaSubmit} className="space-y-4">
+          <form onSubmit={handleTwoFaSubmit} noValidate className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="code">Authenticator Code <span className="text-destructive">*</span></Label>
               <Input
                 id="code"
                 type="text"
                 inputMode="numeric"
-                pattern="[0-9]{6}"
                 maxLength={6}
                 placeholder="000000"
                 value={twoFaCode}
                 onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ''))}
-                required
                 autoFocus
                 className="text-center text-2xl tracking-widest font-mono"
               />

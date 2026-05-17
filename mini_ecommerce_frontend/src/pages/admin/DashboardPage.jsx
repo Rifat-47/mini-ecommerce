@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ShoppingBag, Users, DollarSign, TrendingUp, Home } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import api from '@/api/axios'
 
 const STATUS_COLORS = {
@@ -46,9 +46,7 @@ export default function DashboardPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/"><Home className="h-4 w-4 mr-2" />Back to Store</Link>
-        </Button>
+        <Link to="/" className={buttonVariants({ variant: 'outline', size: 'sm' })}><Home className="h-4 w-4 mr-2" />Back to Store</Link>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

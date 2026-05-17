@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Store, Users, ShoppingBag, DollarSign, TrendingUp, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import { Skeleton } from '@/components/ui/skeleton'
 import api from '@/api/axios'
 
 const statusVariant = {
@@ -36,7 +36,14 @@ export default function PlatformDashboard() {
     load()
   }, [])
 
-  if (loading) return <LoadingSpinner />
+  if (loading) return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1,2,3,4].map((i) => <div key={i} className="border border-border rounded-lg p-5 space-y-3"><Skeleton className="h-4 w-24" /><Skeleton className="h-8 w-16" /></div>)}
+      </div>
+      <Skeleton className="h-40 w-full rounded-lg" />
+    </div>
+  )
 
   if (error) return (
     <div className="flex items-center gap-2 text-destructive">

@@ -11,8 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import ErrorMessage from '@/components/shared/ErrorMessage'
+import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
 import Pagination from '@/components/shared/Pagination'
-import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import TableSkeleton from '@/components/shared/TableSkeleton'
 import useUnsavedChanges from '@/hooks/useUnsavedChanges.jsx'
 import api from '@/api/axios'
 
@@ -42,6 +43,7 @@ function CouponForm({ initial, onSave, onClose, markDirty, confirmClose }) {
   const [users, setUsers] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   useEffect(() => {
     api.get('/categories/?all=true').then(({ data }) => setCategories(data.results ?? data)).catch(() => {})
@@ -62,9 +64,22 @@ function CouponForm({ initial, onSave, onClose, markDirty, confirmClose }) {
     markDirty()
   }
 
+  function validate() {
+    const errors = {}
+    if (!form.code.trim()) errors.code = 'Code is required.'
+    else if (form.code.trim().length < 3) errors.code = 'Code must be at least 3 characters.'
+    else if (form.code.length > 50) errors.code = 'Code must be at most 50 characters.'
+    if (!String(form.discount_value).trim()) errors.discount_value = 'Discount value is required.'
+    else if (isNaN(form.discount_value) || Number(form.discount_value) < 0) errors.discount_value = 'Enter a valid positive number.'
+    return errors
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    const errors = validate()
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setSaving(true)
     try {
       const payload = { ...form }
@@ -84,15 +99,17 @@ function CouponForm({ initial, onSave, onClose, markDirty, confirmClose }) {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
         <ErrorMessage error={error} />
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2 space-y-1.5">
-            <Label>Code *</Label>
-            <Input value={form.code} onChange={field('code')} required placeholder="SAVE10" className="uppercase" />
+            <Label>Code <span className="text-destructive">*</span></Label>
+            <Input value={form.code} onChange={e => { field('code')(e); setFieldErrors(f => ({ ...f, code: '' })) }} maxLength={50} placeholder="SAVE10" className="uppercase" />
+            {fieldErrors.code && <p className="text-sm text-destructive mt-1">{fieldErrors.code}</p>}
+            <MaxLengthWarning value={form.code} max={50} />
           </div>
           <div className="space-y-1.5">
-            <Label>Discount type *</Label>
+            <Label>Discount type <span className="text-destructive">*</span></Label>
             <Select value={form.discount_type} onValueChange={v => { setForm(f => ({ ...f, discount_type: v })); markDirty() }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -103,8 +120,9 @@ function CouponForm({ initial, onSave, onClose, markDirty, confirmClose }) {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Discount value *</Label>
-            <Input type="number" step="0.01" min="0" value={form.discount_value} onChange={field('discount_value')} required />
+            <Label>Discount value <span className="text-destructive">*</span></Label>
+            <Input type="number" step="0.01" min="0" value={form.discount_value} onChange={e => { field('discount_value')(e); setFieldErrors(f => ({ ...f, discount_value: '' })) }} />
+            {fieldErrors.discount_value && <p className="text-sm text-destructive mt-1">{fieldErrors.discount_value}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>Expiry date</Label>
@@ -233,7 +251,7 @@ export default function CouponsPage() {
         <Button size="sm" onClick={() => { reset(); setEditCoupon(null); setShowForm(true) }}><Plus className="h-4 w-4 mr-1.5" />Add Coupon</Button>
       </div>
 
-      {loading ? <LoadingSpinner /> : (
+      {loading ? <TableSkeleton cols={6} /> : (
         <>
           <div className="rounded-xl border border-border overflow-hidden">
             <Table>

@@ -7,10 +7,11 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Tooltip, TooltipProvider } from '@/components/ui/tooltip'
 import ProductCard from '@/components/shared/ProductCard'
 import Pagination from '@/components/shared/Pagination'
 import EmptyState from '@/components/shared/EmptyState'
-import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import { Skeleton } from '@/components/ui/skeleton'
 import api from '@/api/axios'
 
 const SORT_OPTIONS = [
@@ -41,22 +42,26 @@ function FilterPanel({ categories, params, onParamChange, onReset }) {
       {/* Category */}
       <div>
         <h3 className="font-medium text-sm mb-3">Category</h3>
-        <div className="space-y-2">
-          {categories.map((cat) => (
-            <div key={cat.id} className="flex items-center gap-2">
-              <Checkbox
-                id={`cat-${cat.id}`}
-                checked={params.category === String(cat.id)}
-                onCheckedChange={(checked) =>
-                  onParamChange('category', checked ? String(cat.id) : '')
-                }
-              />
-              <Label htmlFor={`cat-${cat.id}`} className="text-sm font-normal cursor-pointer">
-                {cat.name}
-              </Label>
-            </div>
-          ))}
-        </div>
+        <TooltipProvider>
+          <div className="space-y-2">
+            {categories.map((cat) => (
+              <div key={cat.id} className="flex items-center gap-2 min-w-0">
+                <Checkbox
+                  id={`cat-${cat.id}`}
+                  checked={params.category === String(cat.id)}
+                  onCheckedChange={(checked) =>
+                    onParamChange('category', checked ? String(cat.id) : '')
+                  }
+                />
+                <Tooltip content={cat.name.length > 22 ? cat.name : undefined}>
+                  <Label htmlFor={`cat-${cat.id}`} className="text-sm font-normal cursor-pointer truncate min-w-0">
+                    {cat.name}
+                  </Label>
+                </Tooltip>
+              </div>
+            ))}
+          </div>
+        </TooltipProvider>
       </div>
 
       {/* Price range */}
@@ -173,7 +178,10 @@ export default function ProductListPage() {
   }, [fetchProducts])
 
   useEffect(() => {
-    api.get('/categories/').then(({ data }) => setCategories(data.results ?? data)).catch(() => {})
+    api.get('/categories/').then(({ data }) => {
+      const list = data.results ?? data
+      setCategories(Array.isArray(list) ? list : [])
+    }).catch(() => {})
   }, [])
 
   // Keep the page's search input in sync when the URL search param changes externally (e.g. navbar search)
@@ -276,7 +284,9 @@ export default function ProductListPage() {
         <div className="flex items-center gap-2">
           <Select value={params.sort} onValueChange={(v) => setParam('sort', v)}>
             <SelectTrigger className="w-full sm:w-44">
-              <SelectValue />
+              <SelectValue>
+                {SORT_OPTIONS.find((o) => o.value === params.sort)?.label ?? 'Sort by'}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {SORT_OPTIONS.map((o) => (
@@ -287,15 +297,13 @@ export default function ProductListPage() {
 
           {/* Mobile filter sheet */}
           <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="relative lg:hidden">
-                <SlidersHorizontal className="h-4 w-4" />
-                {activeFiltersCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-4 w-4 text-[10px] font-bold bg-primary text-primary-foreground rounded-full flex items-center justify-center">
-                    {activeFiltersCount}
-                  </span>
-                )}
-              </Button>
+            <SheetTrigger className="relative lg:hidden flex items-center justify-center size-8 rounded-lg border border-border bg-background hover:bg-muted hover:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 transition-colors">
+              <SlidersHorizontal className="h-4 w-4" />
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 text-[10px] font-bold bg-primary text-primary-foreground rounded-full flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
             </SheetTrigger>
             <SheetContent side="right">
               <SheetHeader>
@@ -337,7 +345,18 @@ export default function ProductListPage() {
           )}
 
           {loading ? (
-            <LoadingSpinner />
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="bg-card border border-border rounded-xl overflow-hidden">
+                  <Skeleton className="aspect-square w-full" />
+                  <div className="p-4 space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-8 w-full mt-2" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : products.length === 0 ? (
             <EmptyState
               icon={Package}

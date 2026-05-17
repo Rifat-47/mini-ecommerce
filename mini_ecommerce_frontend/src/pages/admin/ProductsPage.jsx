@@ -13,8 +13,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import ErrorMessage from '@/components/shared/ErrorMessage'
+import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
 import Pagination from '@/components/shared/Pagination'
-import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import TableSkeleton from '@/components/shared/TableSkeleton'
 import api from '@/api/axios'
 
 const EMPTY_FORM = { name: '', description: '', price: '', discount_percentage: '0', stock: '', category: '', status: 'active' }
@@ -22,6 +23,13 @@ const EMPTY_FORM = { name: '', description: '', price: '', discount_percentage: 
 const STATUS_COLORS = {
   active: 'bg-success/10 text-success',
   inactive: 'bg-muted text-muted-foreground',
+  coming_soon: 'bg-primary/10 text-primary',
+}
+
+const STATUS_LABELS = {
+  active: 'Active',
+  inactive: 'Inactive',
+  coming_soon: 'Coming Soon',
 }
 
 function ProductForm({ initial, categories, onSave, onClose, markDirty, confirmClose }) {
@@ -42,6 +50,7 @@ function ProductForm({ initial, categories, onSave, onClose, markDirty, confirmC
   const [newFiles, setNewFiles] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
   const fileRef = useRef(null)
 
   const visibleImages = existingImages.filter(img => !img._deleted)
@@ -79,9 +88,27 @@ function ProductForm({ initial, categories, onSave, onClose, markDirty, confirmC
     markDirty()
   }
 
+  function validate() {
+    const errors = {}
+    if (!form.name.trim()) errors.name = 'Name is required.'
+    else if (form.name.trim().length < 2) errors.name = 'Name must be at least 2 characters.'
+    else if (form.name.length > 100) errors.name = 'Name must be at most 100 characters.'
+    if (form.description.length > 2000) errors.description = 'Description must be at most 2000 characters.'
+    if (!String(form.price).trim()) errors.price = 'Price is required.'
+    else if (isNaN(form.price) || Number(form.price) < 0) errors.price = 'Price must be a valid positive number.'
+    if (form.discount_percentage !== '' && (isNaN(form.discount_percentage) || Number(form.discount_percentage) < 0 || Number(form.discount_percentage) > 100))
+      errors.discount_percentage = 'Discount must be between 0 and 100.'
+    if (!String(form.stock).trim()) errors.stock = 'Stock is required.'
+    else if (isNaN(form.stock) || Number(form.stock) < 0) errors.stock = 'Stock must be 0 or more.'
+    return errors
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    const errors = validate()
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setSaving(true)
     try {
       const payload = { ...form, category: form.category || null }
@@ -126,33 +153,46 @@ function ProductForm({ initial, categories, onSave, onClose, markDirty, confirmC
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <ErrorMessage error={error} />
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2 space-y-1">
             <Label>Name <span className="text-destructive">*</span></Label>
-            <Input value={form.name} onChange={field('name')} required />
+            <Input value={form.name} onChange={e => { field('name')(e); setFieldErrors(f => ({ ...f, name: '' })) }} maxLength={100} />
+            {fieldErrors.name && <p className="text-sm text-destructive mt-1">{fieldErrors.name}</p>}
+            <MaxLengthWarning value={form.name} max={100} />
           </div>
           <div className="col-span-2 space-y-1">
             <Label>Description</Label>
-            <Textarea value={form.description} onChange={field('description')} rows={3} />
+            <Textarea value={form.description} onChange={e => { field('description')(e); setFieldErrors(f => ({ ...f, description: '' })) }} maxLength={2000} rows={3} />
+            {fieldErrors.description && <p className="text-sm text-destructive mt-1">{fieldErrors.description}</p>}
+            <MaxLengthWarning value={form.description} max={2000} />
           </div>
           <div className="space-y-1">
             <Label>Price (৳) <span className="text-destructive">*</span></Label>
-            <Input type="number" step="0.01" min="0" value={form.price} onChange={field('price')} required />
+            <Input type="number" step="0.01" min="0" value={form.price} onChange={e => { field('price')(e); setFieldErrors(f => ({ ...f, price: '' })) }} />
+            {fieldErrors.price && <p className="text-sm text-destructive mt-1">{fieldErrors.price}</p>}
           </div>
           <div className="space-y-1">
             <Label>Discount (%)</Label>
-            <Input type="number" step="0.01" min="0" max="100" value={form.discount_percentage} onChange={field('discount_percentage')} />
+            <Input type="number" step="0.01" min="0" max="100" value={form.discount_percentage} onChange={e => { field('discount_percentage')(e); setFieldErrors(f => ({ ...f, discount_percentage: '' })) }} />
+            {fieldErrors.discount_percentage && <p className="text-sm text-destructive mt-1">{fieldErrors.discount_percentage}</p>}
           </div>
           <div className="space-y-1">
             <Label>Stock <span className="text-destructive">*</span></Label>
-            <Input type="number" min="0" value={form.stock} onChange={field('stock')} required />
+            <Input type="number" min="0" value={form.stock} onChange={e => { field('stock')(e); setFieldErrors(f => ({ ...f, stock: '' })) }} />
+            {fieldErrors.stock && <p className="text-sm text-destructive mt-1">{fieldErrors.stock}</p>}
           </div>
           <div className="space-y-1">
             <Label>Category <span className="text-destructive">*</span></Label>
             <Select value={form.category || 'none'} onValueChange={(v) => { setForm(f => ({ ...f, category: v === 'none' ? '' : v })); markDirty() }}>
-              <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Select category">
+                  {form.category
+                    ? (categories.find(c => String(c.id) === form.category)?.name ?? 'Select category')
+                    : 'No category'}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No category</SelectItem>
                 {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
@@ -162,10 +202,15 @@ function ProductForm({ initial, categories, onSave, onClose, markDirty, confirmC
           <div className="space-y-1">
             <Label>Status</Label>
             <Select value={form.status} onValueChange={(v) => { setForm(f => ({ ...f, status: v })); markDirty() }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue>
+                  {STATUS_LABELS[form.status] ?? form.status}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="coming_soon">Coming Soon</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -244,10 +289,24 @@ function StockAdjustDialog({ product, onClose, onSaved }) {
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
+
+  function validate() {
+    const errors = {}
+    if (!change.trim()) errors.change = 'Quantity change is required.'
+    else if (isNaN(change) || parseInt(change) === 0) errors.change = 'Enter a non-zero integer.'
+    if (!reason.trim()) errors.reason = 'Reason is required.'
+    else if (reason.trim().length < 3) errors.reason = 'Reason must be at least 3 characters.'
+    else if (reason.length > 255) errors.reason = 'Reason must be at most 255 characters.'
+    return errors
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    const errors = validate()
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setLoading(true)
     try {
       await api.post(`/admin/products/${product.id}/adjust-stock/`, { quantity_change: parseInt(change), reason })
@@ -261,16 +320,19 @@ function StockAdjustDialog({ product, onClose, onSaved }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4">
       <p className="text-sm text-muted-foreground">Current stock: <span className="font-medium text-foreground">{product.stock}</span></p>
       <ErrorMessage error={error} />
       <div className="space-y-1.5">
-        <Label>Quantity change (negative to remove)</Label>
-        <Input type="number" value={change} onChange={(e) => setChange(e.target.value)} required placeholder="e.g. 10 or -5" />
+        <Label>Quantity change (negative to remove) <span className="text-destructive">*</span></Label>
+        <Input type="number" value={change} onChange={(e) => { setChange(e.target.value); setFieldErrors(f => ({ ...f, change: '' })) }} placeholder="e.g. 10 or -5" />
+        {fieldErrors.change && <p className="text-sm text-destructive mt-1">{fieldErrors.change}</p>}
       </div>
       <div className="space-y-1.5">
-        <Label>Reason</Label>
-        <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Restock, damaged goods" required />
+        <Label>Reason <span className="text-destructive">*</span></Label>
+        <Input value={reason} onChange={(e) => { setReason(e.target.value); setFieldErrors(f => ({ ...f, reason: '' })) }} placeholder="e.g. Restock, damaged goods" maxLength={255} />
+        {fieldErrors.reason && <p className="text-sm text-destructive mt-1">{fieldErrors.reason}</p>}
+        <MaxLengthWarning value={reason} max={255} />
       </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -405,7 +467,7 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {loading ? <LoadingSpinner /> : (
+      {loading ? <TableSkeleton cols={7} /> : (
         <>
           <div className="rounded-xl border border-border overflow-hidden">
             <Table>
@@ -432,12 +494,12 @@ export default function ProductsPage() {
                         <span className="text-sm font-medium line-clamp-1">{p.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{p.category_name || '—'}</TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground max-w-[140px] truncate" title={p.category_name}>{p.category_name || '—'}</TableCell>
                     <TableCell className="text-sm">৳{parseFloat(p.price).toFixed(2)}</TableCell>
                     <TableCell className="hidden sm:table-cell text-sm">{p.stock}</TableCell>
                     <TableCell className="hidden sm:table-cell">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[p.status] || ''}`}>
-                        {p.status}
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${STATUS_COLORS[p.status] || ''}`}>
+                        {STATUS_LABELS[p.status] ?? p.status}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">

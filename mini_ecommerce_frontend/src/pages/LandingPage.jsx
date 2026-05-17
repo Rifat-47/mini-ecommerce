@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { Package, Store, Sun, Moon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import useThemeStore from '@/store/themeStore'
 
@@ -27,9 +27,7 @@ export default function LandingPage() {
           <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/auth/login">Platform Login</Link>
-          </Button>
+          <Link to="/auth/login" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Platform Login</Link>
         </div>
       </header>
 

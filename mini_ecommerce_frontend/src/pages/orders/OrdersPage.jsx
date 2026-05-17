@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import Pagination from '@/components/shared/Pagination'
 import EmptyState from '@/components/shared/EmptyState'
-import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import { Skeleton } from '@/components/ui/skeleton'
 import api from '@/api/axios'
 
 const STATUS_COLORS = {
@@ -76,7 +76,17 @@ export default function OrdersPage() {
       </div>
 
       {loading ? (
-        <LoadingSpinner />
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center justify-between bg-card border border-border rounded-xl p-4 gap-4">
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-48" />
+              </div>
+              <Skeleton className="h-4 w-20 shrink-0" />
+            </div>
+          ))}
+        </div>
       ) : orders.length === 0 ? (
         <EmptyState
           icon={Package}
@@ -89,8 +99,8 @@ export default function OrdersPage() {
           <div className="space-y-3">
             {orders.map((order) => (
               <Link
-                key={order.id}
-                to={`/orders/${order.id}`}
+                key={order.public_id}
+                to={`/orders/${order.public_id}`}
                 className="flex items-center justify-between bg-card border border-border rounded-xl p-4 hover:shadow-sm transition-shadow gap-4"
               >
                 <div className="flex-1 min-w-0">

@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import Pagination from '@/components/shared/Pagination'
-import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import TableSkeleton from '@/components/shared/TableSkeleton'
 import api from '@/api/axios'
 
 export default function EmailLogsPage() {
@@ -96,7 +96,7 @@ export default function EmailLogsPage() {
         </form>
       </div>
 
-      {loading ? <LoadingSpinner /> : (
+      {loading ? <TableSkeleton cols={5} /> : (
         <>
           <div className="rounded-xl border border-border overflow-hidden">
             <Table>

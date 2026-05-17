@@ -35,10 +35,8 @@ export default function AdminLayout() {
           <div className="flex items-center gap-3">
             {/* Mobile nav trigger */}
             <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu">
-                  <Menu className="h-5 w-5" />
-                </Button>
+              <SheetTrigger className="lg:hidden flex items-center justify-center size-8 rounded-lg hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 transition-colors" aria-label="Open menu">
+                <Menu className="h-5 w-5" />
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-64">
                 <MobileAdminNav />

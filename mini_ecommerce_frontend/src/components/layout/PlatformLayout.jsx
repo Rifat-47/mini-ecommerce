@@ -23,10 +23,8 @@ export default function PlatformLayout() {
         <header className="flex items-center justify-between h-16 px-4 sm:px-6 border-b border-border bg-background shrink-0">
           <div className="flex items-center gap-3">
             <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu">
-                  <Menu className="h-5 w-5" />
-                </Button>
+              <SheetTrigger className="lg:hidden flex items-center justify-center size-8 rounded-lg hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 transition-colors" aria-label="Open menu">
+                <Menu className="h-5 w-5" />
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-64">
                 <PlatformSidebar />

@@ -16,6 +16,10 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
+        extra_kwargs = {
+            'name': {'min_length': 2, 'max_length': 100},
+            'description': {'max_length': 2000, 'required': False},
+        }
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -52,18 +56,28 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = '__all__'
+        extra_kwargs = {
+            'name': {'min_length': 2, 'max_length': 100},
+            'description': {'max_length': 2000, 'required': False},
+        }
 
     def get_average_rating(self, obj):
-        avg = obj.reviews.aggregate(Avg('rating'))['rating__avg']
+        avg = getattr(obj, 'avg_rating', None)
+        if avg is None:
+            from django.db.models import Avg as _Avg
+            avg = obj.reviews.aggregate(r=_Avg('rating'))['r']
         return round(avg, 1) if avg is not None else None
 
     def get_review_count(self, obj):
-        return obj.reviews.count()
+        count = getattr(obj, 'review_count', None)
+        if count is None:
+            count = obj.reviews.count()
+        return count
 
     def get_images(self, obj):
-        # Primary image first, then the rest ordered by upload time
-        images = obj.images.order_by('-is_primary', 'uploaded_at')
         request = self.context.get('request')
+        # Sort in Python to reuse the prefetch cache instead of issuing a new query
+        images = sorted(obj.images.all(), key=lambda img: (not img.is_primary, img.uploaded_at))
         return [
             {
                 'id': img.id,
@@ -86,17 +100,35 @@ class StockMovementSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     reviewer_name = serializers.SerializerMethodField()
     reviewer_email = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
-        fields = ['id', 'product', 'reviewer_name', 'reviewer_email', 'rating', 'comment', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'product', 'reviewer_name', 'reviewer_email', 'created_at', 'updated_at']
+        fields = ['id', 'product', 'reviewer_name', 'reviewer_email', 'rating', 'comment', 'created_at', 'updated_at', 'can_edit']
+        read_only_fields = ['id', 'product', 'reviewer_name', 'reviewer_email', 'created_at', 'updated_at', 'can_edit']
+        extra_kwargs = {
+            'comment': {'max_length': 1000, 'required': False},
+        }
 
     def get_reviewer_name(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.email
 
     def get_reviewer_email(self, obj):
         return obj.user.email
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        if obj.user_id != request.user.pk:
+            return False
+        from config.models import SiteSettings
+        from django.utils import timezone
+        edit_days = SiteSettings.get().review_edit_days
+        if edit_days == 0:
+            return True
+        cutoff = obj.created_at + timezone.timedelta(days=edit_days)
+        return timezone.now() <= cutoff
 
     def validate(self, attrs):
         request = self.context['request']
@@ -112,6 +144,10 @@ class ReviewSerializer(serializers.ModelSerializer):
             if not has_delivered_order:
                 raise serializers.ValidationError(
                     "You can only review products you have received."
+                )
+            if Review.objects.filter(user=request.user, product=product).exists():
+                raise serializers.ValidationError(
+                    "You have already reviewed this product."
                 )
 
         return attrs

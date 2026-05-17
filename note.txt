@@ -1,4 +1,0 @@
-rifatsqa@yopmail.com
-rifatsqa
-
-python manage.py create_platform_admin --email rifatsqa@yopmail.com --password rifatsqa --first-name rifat --last-name sqa

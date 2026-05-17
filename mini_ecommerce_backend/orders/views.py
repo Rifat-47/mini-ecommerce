@@ -37,14 +37,19 @@ class OrderViewSet(viewsets.ModelViewSet):
     filterset_fields = ['status', 'user']
     ordering_fields = ['created_at']
     ordering = ['-created_at']
+    lookup_field = 'public_id'
+    lookup_value_regex = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 
     def get_queryset(self):
         user = self.request.user
         if not user.is_authenticated:
             return Order.objects.none()
+        qs = Order.objects.select_related('user', 'coupon').prefetch_related(
+            'items__product__images',
+        )
         if hasattr(user, 'role') and user.role in ['admin', 'superadmin']:
-            return Order.objects.all()
-        return Order.objects.filter(user=user)
+            return qs
+        return qs.filter(user=user)
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -75,9 +80,9 @@ class OrderViewSet(viewsets.ModelViewSet):
 class OrderCancelView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request, pk):
+    def post(self, request, public_id):
         try:
-            order = Order.objects.get(pk=pk, user=request.user)
+            order = Order.objects.get(public_id=public_id, user=request.user)
         except Order.DoesNotExist:
             raise NotFound("Order not found.")
 
@@ -220,9 +225,9 @@ class ReturnRequestView(APIView):
     """Customer initiates or views a return request for a delivered order."""
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, pk):
+    def get(self, request, public_id):
         try:
-            order = Order.objects.get(pk=pk, user=request.user)
+            order = Order.objects.get(public_id=public_id, user=request.user)
         except Order.DoesNotExist:
             raise NotFound("Order not found.")
 
@@ -231,9 +236,9 @@ class ReturnRequestView(APIView):
 
         return Response(ReturnRequestSerializer(order.return_request).data)
 
-    def post(self, request, pk):
+    def post(self, request, public_id):
         try:
-            order = Order.objects.get(pk=pk, user=request.user)
+            order = Order.objects.get(public_id=public_id, user=request.user)
         except Order.DoesNotExist:
             raise NotFound("Order not found.")
 
@@ -355,7 +360,7 @@ class AdminRefundMarkView(APIView):
                     f'Your Refund Has Been Processed — Order #{order.id}',
                     (
                         f'Hi {order.user.first_name or order.user.email},\n\n'
-                        f'Your refund of BDT {order.total_amount} for Order #{order.id} has been processed.\n'
+                        f'Your refund of BDT {order.total_amount:.2f} for Order #{order.id} has been processed.\n'
                         f'Please allow 3–7 business days for it to reflect in your account.\n\n'
                         f'— The {cfg_rf.store_name} Team'
                     ),
@@ -363,7 +368,7 @@ class AdminRefundMarkView(APIView):
                     [order.user.email],
                 )
             notify(order.user, 'refund_completed', f'Refund Processed — Order #{order.id}',
-                   f'Your refund of BDT {order.total_amount} for Order #{order.id} has been processed.')
+                   f'Your refund of BDT {order.total_amount:.2f} for Order #{order.id} has been processed.')
         audit(request.user, 'refund_marked', 'ReturnRequest', return_request.pk,
               f'Refund marked complete for Order #{order.id}')
 
@@ -376,16 +381,16 @@ class InvoiceDownloadView(APIView):
     """Download invoice PDF for an order. Customer (own) or Admin."""
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, pk):
+    def get(self, request, public_id):
         user = request.user
         is_admin = user.role in ('admin', 'superadmin')
 
         try:
             order = Order.objects.prefetch_related(
-                'items__product', 'payment'
-            ).get(pk=pk) if is_admin else Order.objects.prefetch_related(
-                'items__product', 'payment'
-            ).get(pk=pk, user=user)
+                'items__product__images', 'payment'
+            ).get(public_id=public_id) if is_admin else Order.objects.prefetch_related(
+                'items__product__images', 'payment'
+            ).get(public_id=public_id, user=user)
         except Order.DoesNotExist:
             raise NotFound("Order not found.")
 
@@ -399,16 +404,16 @@ class CreditNoteDownloadView(APIView):
     """Download credit note PDF for a completed refund. Customer (own) or Admin."""
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, pk):
+    def get(self, request, public_id):
         user = request.user
         is_admin = user.role in ('admin', 'superadmin')
 
         try:
             order = Order.objects.prefetch_related(
-                'items__product', 'return_request'
-            ).get(pk=pk) if is_admin else Order.objects.prefetch_related(
-                'items__product', 'return_request'
-            ).get(pk=pk, user=user)
+                'items__product__images', 'return_request'
+            ).get(public_id=public_id) if is_admin else Order.objects.prefetch_related(
+                'items__product__images', 'return_request'
+            ).get(public_id=public_id, user=user)
         except Order.DoesNotExist:
             raise NotFound("Order not found.")
 

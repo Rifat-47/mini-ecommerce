@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom'
 import { Package } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import useSettingsStore from '@/store/settingsStore'
+import useAuthStore from '@/store/authStore'
 
 export default function Footer() {
   const year = new Date().getFullYear()
   const storeName = useSettingsStore(s => s.settings.store_name)
+  const { isAuthenticated } = useAuthStore()
 
   return (
     <footer className="bg-card border-t border-border mt-auto">
@@ -50,11 +52,11 @@ export default function Footer() {
             <h3 className="font-semibold text-sm mb-3">Account</h3>
             <ul className="space-y-2">
               {[
-                { label: 'Login', to: '/login' },
-                { label: 'Register', to: '/register' },
+                !isAuthenticated() && { label: 'Login', to: '/login' },
+                !isAuthenticated() && { label: 'Register', to: '/register' },
                 { label: 'Profile', to: '/profile' },
                 { label: 'Privacy & Data', to: '/profile' },
-              ].map((link) => (
+              ].filter(Boolean).map((link) => (
                 <li key={link.label}>
                   <Link
                     to={link.to}

@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import ErrorMessage from '@/components/shared/ErrorMessage'
+import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
 import api from '@/api/axios'
 
 const STATUS_COLORS = {
@@ -37,11 +38,15 @@ function ReturnForm({ orderId, onSubmitted }) {
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldError, setFieldError] = useState('')
   const [open, setOpen] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!reason.trim()) { setError({ error: 'Please provide a reason.' }); return }
+    if (!reason.trim()) { setFieldError('Please provide a reason.'); return }
+    if (reason.trim().length < 10) { setFieldError('Reason must be at least 10 characters.'); return }
+    if (reason.length > 1000) { setFieldError('Reason must be at most 1000 characters.'); return }
+    setFieldError('')
     setError(null)
     setLoading(true)
     try {
@@ -66,16 +71,21 @@ function ReturnForm({ orderId, onSubmitted }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-border rounded-lg bg-muted/30 mt-4">
+    <form onSubmit={handleSubmit} noValidate className="space-y-3 p-4 border border-border rounded-lg bg-muted/30 mt-4">
       <h3 className="font-medium text-sm">Return Request</h3>
       <ErrorMessage error={error} />
-      <Textarea
-        placeholder="Describe the reason for return..."
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-        rows={3}
-        required
-      />
+      <div>
+        <Textarea
+          placeholder="Describe the reason for return (min 10 characters)..."
+          value={reason}
+          onChange={(e) => { setReason(e.target.value); setFieldError('') }}
+          rows={3}
+          maxLength={1000}
+        />
+        {fieldError && <p className="text-sm text-destructive mt-1">{fieldError}</p>}
+        <MaxLengthWarning value={reason} max={1000} />
+        <p className="text-xs text-muted-foreground mt-1 text-right">{reason.length}/1000</p>
+      </div>
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={loading}>
           {loading && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
@@ -132,7 +142,7 @@ export default function OrderDetailPage() {
   async function handlePay() {
     setInitiatingPayment(true)
     try {
-      const { data } = await api.post('/payments/initiate/', { order_id: Number(id) })
+      const { data } = await api.post('/payments/initiate/', { order_id: id })
       window.location.href = data.checkout_url
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to initiate payment.')

@@ -84,6 +84,7 @@ const useAuthStore = create((set, get) => ({
       email: data.email,
       role: data.role,
       first_name: data.first_name || '',
+      avatar: data.avatar_url || null,
     }
     localStorage.setItem('access_token', data.access)
     localStorage.setItem('refresh_token', data.refresh)

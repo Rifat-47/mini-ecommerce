@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ShoppingCart, Heart, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react'
+import { ShoppingCart, Heart, ChevronLeft, ChevronRight, Minus, Plus, Clock, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -10,10 +10,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import StarRating from '@/components/shared/StarRating'
 import ErrorMessage from '@/components/shared/ErrorMessage'
+import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
 import api from '@/api/axios'
 import useCartStore from '@/store/cartStore'
 import useWishlistStore from '@/store/wishlistStore'
 import useAuthStore from '@/store/authStore'
+import { getErrorMessage } from '@/lib/errors'
 
 function ImageGallery({ images }) {
   const [activeIdx, setActiveIdx] = useState(0)
@@ -58,39 +60,156 @@ function ImageGallery({ images }) {
   )
 }
 
-function ReviewForm({ productId, onSubmitted }) {
+function ReviewCard({ review, productId, onChanged }) {
+  const [editing, setEditing] = useState(false)
+  const [rating, setRating] = useState(review.rating)
+  const [comment, setComment] = useState(review.comment || '')
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function handleUpdate(e) {
+    e.preventDefault()
+    if (!rating) return
+    setSaving(true)
+    setError(null)
+    try {
+      await api.patch(`/products/${productId}/reviews/${review.id}/`, { rating, comment })
+      toast.success('Review updated.')
+      setEditing(false)
+      onChanged?.()
+    } catch (err) {
+      const data = err.response?.data
+      const msg = Array.isArray(data) ? data[0] : (data?.non_field_errors?.[0] ?? data?.detail ?? data?.error ?? 'Failed to update review.')
+      setError({ error: msg })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await api.delete(`/products/${productId}/reviews/${review.id}/`)
+      toast.success('Review deleted.')
+      onChanged?.()
+    } catch (err) {
+      const data = err.response?.data
+      const msg = data?.detail ?? data?.error ?? 'Failed to delete review.'
+      toast.error(msg)
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
+
+  return (
+    <div className="border border-border rounded-lg p-4">
+      {editing ? (
+        <form onSubmit={handleUpdate} className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-sm">{review.reviewer_name || 'Anonymous'}</span>
+            <button type="button" onClick={() => { setEditing(false); setRating(review.rating); setComment(review.comment || ''); setError(null) }} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+          </div>
+          <ErrorMessage error={error} />
+          <div>
+            <p className="text-sm text-muted-foreground mb-1.5">Your rating</p>
+            <StarRating value={rating} interactive onChange={setRating} size="lg" />
+          </div>
+          <div>
+            <Textarea placeholder="Share your experience (optional)" value={comment} onChange={e => setComment(e.target.value)} rows={3} maxLength={1000} />
+            <MaxLengthWarning value={comment} max={1000} />
+            <p className="text-xs text-muted-foreground mt-1 text-right">{comment.length}/1000</p>
+          </div>
+          <Button type="submit" size="sm" disabled={saving || !rating}>{saving ? 'Saving…' : 'Save'}</Button>
+        </form>
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <div className="min-w-0">
+              <span className="font-medium text-sm">{review.reviewer_name || 'Anonymous'}</span>
+              <span className="text-xs text-muted-foreground ml-2">{new Date(review.created_at).toLocaleDateString()}</span>
+            </div>
+            {review.can_edit && (
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => { setEditing(true); setConfirmDelete(false) }} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" aria-label="Edit review">
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                {confirmDelete ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-destructive">Delete?</span>
+                    <button onClick={handleDelete} disabled={deleting} className="text-xs font-medium text-destructive hover:underline disabled:opacity-50">{deleting ? '…' : 'Yes'}</button>
+                    <button onClick={() => setConfirmDelete(false)} className="text-xs text-muted-foreground hover:underline">No</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmDelete(true)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors" aria-label="Delete review">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <StarRating value={review.rating} />
+          {review.comment && <p className="text-sm text-muted-foreground mt-2">{review.comment}</p>}
+        </>
+      )}
+    </div>
+  )
+}
+
+function ReviewForm({ productId, onSubmitted, reviews = [] }) {
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [submitted, setSubmitted] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!rating) { setError({ error: 'Please select a rating.' }); return }
+    const errors = {}
+    if (!rating) errors.rating = 'Please select a rating.'
+    if (comment.length > 1000) errors.comment = 'Comment must be at most 1000 characters.'
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setError(null)
     setLoading(true)
     try {
       await api.post(`/products/${productId}/reviews/`, { rating, comment })
       toast.success('Review submitted!')
-      setRating(0)
-      setComment('')
+      setSubmitted(true)
       onSubmitted?.()
     } catch (err) {
-      setError(err.response?.data || { error: 'Failed to submit review.' })
+      const data = err.response?.data
+      const msg = Array.isArray(data) ? data[0] : (data?.non_field_errors?.[0] ?? data?.detail ?? data?.error ?? 'Failed to submit review.')
+      setError({ error: msg })
     } finally {
       setLoading(false)
     }
   }
 
+  const { user } = useAuthStore()
+  const alreadyReviewed = reviews.some(r => r.reviewer_email === user?.email)
+
+  if (submitted || alreadyReviewed) {
+    return null
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 mt-6 border-t border-border pt-6">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4 mt-6 border-t border-border pt-6">
       <h3 className="font-semibold">Write a review</h3>
       <ErrorMessage error={error} />
       <div>
         <p className="text-sm text-muted-foreground mb-1.5">Your rating</p>
-        <StarRating value={rating} interactive onChange={setRating} size="lg" />
+        <StarRating value={rating} interactive onChange={v => { setRating(v); setFieldErrors(f => ({ ...f, rating: '' })) }} size="lg" />
+        {fieldErrors.rating && <p className="text-sm text-destructive mt-1">{fieldErrors.rating}</p>}
       </div>
-      <Textarea placeholder="Share your experience (optional)" value={comment} onChange={(e) => setComment(e.target.value)} rows={3} />
+      <div>
+        <Textarea placeholder="Share your experience (optional)" value={comment} onChange={(e) => { setComment(e.target.value); setFieldErrors(f => ({ ...f, comment: '' })) }} rows={3} maxLength={1000} />
+        {fieldErrors.comment && <p className="text-sm text-destructive mt-1">{fieldErrors.comment}</p>}
+        <MaxLengthWarning value={comment} max={1000} />
+        <p className="text-xs text-muted-foreground mt-1 text-right">{comment.length}/1000</p>
+      </div>
       <Button type="submit" disabled={loading}>{loading ? 'Submitting...' : 'Submit Review'}</Button>
     </form>
   )
@@ -104,6 +223,7 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1)
 
   const addItem = useCartStore((s) => s.addItem)
+  const inCart = useCartStore((s) => s.items.some((i) => i.product_id === Number(id)))
   const wishlisted = useWishlistStore((s) => s.items.some((i) => i.product_id === Number(id)))
   const addToWishlist = useWishlistStore((s) => s.addItem)
   const addToBackend = useWishlistStore((s) => s.addToBackend)
@@ -151,24 +271,33 @@ export default function ProductDetailPage() {
   const discountPct = parseFloat(product.discount_percentage || 0)
   const originalPrice = parseFloat(product.price)
   const effectivePrice = discountPct > 0 ? originalPrice * (1 - discountPct / 100) : originalPrice
-  const inStock = product.stock > 0
+  const isComingSoon = product.status === 'coming_soon'
+  const inStock = product.stock > 0 && !isComingSoon
 
-  function handleAddToCart() {
-    addItem(product, quantity)
-    toast.success(`${product.name} added to cart`)
+  async function handleAddToCart() {
+    try {
+      await addItem(product, quantity)
+      toast.success(`${product.name} added to cart`)
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Could not add to cart'))
+    }
   }
 
-  function handleWishlist() {
+  async function handleWishlist() {
     if (wishlisted) {
-      isAuthenticated ? removeFromBackend(product.id) : removeFromWishlist(product.id)
-      toast.success('Removed from wishlist')
-    } else {
-      if (isAuthenticated) {
-        addToBackend(product).catch(() => toast.error('Failed to add to wishlist'))
-      } else {
-        addToWishlist(product)
+      try {
+        isAuthenticated() ? await removeFromBackend(product.id) : removeFromWishlist(product.id)
+        toast.success('Removed from wishlist')
+      } catch (err) {
+        toast.error(getErrorMessage(err, 'Failed to remove from wishlist'))
       }
-      toast.success('Added to wishlist')
+    } else {
+      try {
+        isAuthenticated() ? await addToBackend(product) : addToWishlist(product)
+        toast.success('Added to wishlist')
+      } catch (err) {
+        toast.error(getErrorMessage(err, 'Failed to add to wishlist'))
+      }
     }
   }
 
@@ -209,11 +338,14 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            <p className={cn('text-sm font-medium', inStock ? 'text-success' : 'text-destructive')}>
-              {inStock ? `In stock (${product.stock} available)` : 'Out of stock'}
+            <p className={cn(
+              'text-sm font-medium',
+              isComingSoon ? 'text-primary' : inStock ? 'text-success' : 'text-destructive',
+            )}>
+              {isComingSoon ? 'Coming Soon' : inStock ? `In stock (${product.stock} available)` : 'Out of stock'}
             </p>
 
-            {inStock && (
+            {inStock && !isComingSoon && (
               <div className="flex items-center border border-border rounded-lg w-fit overflow-hidden">
                 <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="px-3 py-2 hover:bg-accent transition-colors">
                   <Minus className="h-4 w-4" />
@@ -226,9 +358,21 @@ export default function ProductDetailPage() {
             )}
 
             <div className="flex gap-3">
-              <Button className="flex-1" disabled={!inStock} onClick={handleAddToCart}>
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                {inStock ? 'Add to Cart' : 'Out of Stock'}
+              <Button
+                disabled={isComingSoon || !inStock || inCart}
+                onClick={handleAddToCart}
+                className={cn(
+                  'flex-1',
+                  isComingSoon && 'bg-primary/10 text-primary hover:bg-primary/10 border border-primary/20 opacity-90 cursor-not-allowed',
+                  !isComingSoon && !inStock && 'bg-muted text-muted-foreground hover:bg-muted opacity-60 cursor-not-allowed',
+                  !isComingSoon && inStock && inCart && 'bg-muted text-muted-foreground hover:bg-muted opacity-60 cursor-not-allowed',
+                )}
+              >
+                {isComingSoon
+                  ? <Clock className="h-4 w-4 mr-2 shrink-0" />
+                  : <ShoppingCart className="h-4 w-4 mr-2 shrink-0" />
+                }
+                {isComingSoon ? 'Coming Soon' : !inStock ? 'Out of Stock' : inCart ? 'Added to Cart' : 'Add to Cart'}
               </Button>
               <Button variant="outline" size="icon" onClick={handleWishlist} className={cn(wishlisted && 'text-destructive border-destructive hover:text-destructive')} aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}>
                 <Heart className={cn('h-4 w-4', wishlisted && 'fill-current')} />
@@ -257,18 +401,11 @@ export default function ProductDetailPage() {
             ) : (
               <div className="space-y-4">
                 {reviews.map((review) => (
-                  <div key={review.id} className="border border-border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-medium text-sm">{review.reviewer_name || 'Anonymous'}</span>
-                      <span className="text-xs text-muted-foreground">{new Date(review.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <StarRating value={review.rating} />
-                    {review.comment && <p className="text-sm text-muted-foreground mt-2">{review.comment}</p>}
-                  </div>
+                  <ReviewCard key={review.id} review={review} productId={id} onChanged={fetchReviews} />
                 ))}
               </div>
             )}
-            {isAuthenticated && <ReviewForm productId={id} onSubmitted={fetchReviews} />}
+            {isAuthenticated() && <ReviewForm productId={id} onSubmitted={fetchReviews} reviews={reviews} />}
           </TabsContent>
         </Tabs>
       </div>

@@ -87,7 +87,10 @@ class ProductViewSet(viewsets.ModelViewSet):
         user = self.request.user
         is_admin = user.is_authenticated and hasattr(user, 'role') and user.role in ('admin', 'superadmin')
 
-        qs = Product.objects.all()
+        qs = Product.objects.select_related('category').prefetch_related('images').annotate(
+            avg_rating=Avg('reviews__rating'),
+            review_count=Count('reviews', distinct=True),
+        )
         # Write operations must see all products regardless of status
         if is_admin and self.request.method not in ('GET', 'HEAD', 'OPTIONS'):
             return qs.order_by(SORT_MAP.get(sort, '-id'))
@@ -95,11 +98,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         if not show_all:
             qs = qs.filter(status='active', category__status='active')
 
-        if sort in ('rating', 'popularity'):
-            qs = qs.annotate(
-                avg_rating=Avg('reviews__rating'),
-                order_count=Count('orderitem', distinct=True),
-            )
+        if sort == 'popularity':
+            qs = qs.annotate(order_count=Count('orderitem', distinct=True))
 
         order_by = SORT_MAP.get(sort, '-id')
         return qs.order_by(order_by)
@@ -223,10 +223,27 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         super().check_object_permissions(request, obj)
         is_admin = request.user.role in ['admin', 'superadmin']
         is_owner = obj.user == request.user
-        if request.method in ('PUT', 'PATCH') and not is_owner:
-            raise PermissionDenied("You can only edit your own reviews.")
-        if request.method == 'DELETE' and not (is_owner or is_admin):
-            raise PermissionDenied("You do not have permission to delete this review.")
+        if request.method in ('PUT', 'PATCH'):
+            if not is_owner:
+                raise PermissionDenied("You can only edit your own reviews.")
+            self._check_edit_window(obj)
+        if request.method == 'DELETE':
+            if not (is_owner or is_admin):
+                raise PermissionDenied("You do not have permission to delete this review.")
+            if is_owner and not is_admin:
+                self._check_edit_window(obj)
+
+    def _check_edit_window(self, obj):
+        from config.models import SiteSettings
+        from django.utils import timezone
+        edit_days = SiteSettings.get().review_edit_days
+        if edit_days == 0:
+            return
+        cutoff = obj.created_at + timezone.timedelta(days=edit_days)
+        if timezone.now() > cutoff:
+            raise PermissionDenied(
+                f"Reviews can only be edited within {edit_days} day{'s' if edit_days != 1 else ''} of submission."
+            )
 
 
 # ── Search Suggestions ───────────────────────────────────────────────────────

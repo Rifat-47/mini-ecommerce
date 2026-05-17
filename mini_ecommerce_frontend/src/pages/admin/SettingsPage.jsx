@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import useSettingsStore from '@/store/settingsStore'
+import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
 import useAuthStore from '@/store/authStore'
 
 function SettingSection({ title, children }) {
@@ -104,19 +105,24 @@ export default function SettingsPage() {
       {/* Store Identity */}
       <SettingSection title="Store Identity">
         <Field label="Store Name" id="store_name" hint="Used across the UI, emails, and PDFs.">
-          <Input id="store_name" value={form.store_name || ''} onChange={e => set('store_name', e.target.value)} disabled={disabled} />
+          <Input id="store_name" value={form.store_name || ''} onChange={e => set('store_name', e.target.value)} disabled={disabled} maxLength={100} />
+          <MaxLengthWarning value={form.store_name || ''} max={100} />
         </Field>
         <Field label="Support Email" id="support_email" hint="Shown in invoices and credit notes.">
-          <Input id="support_email" type="email" value={form.support_email || ''} onChange={e => set('support_email', e.target.value)} disabled={disabled} />
+          <Input id="support_email" type="email" value={form.support_email || ''} onChange={e => set('support_email', e.target.value)} disabled={disabled} maxLength={254} />
+          <MaxLengthWarning value={form.support_email || ''} max={254} />
         </Field>
         <Field label="From Email" id="from_email" hint="Sender address for all outgoing emails.">
-          <Input id="from_email" type="email" value={form.from_email || ''} onChange={e => set('from_email', e.target.value)} disabled={disabled} />
+          <Input id="from_email" type="email" value={form.from_email || ''} onChange={e => set('from_email', e.target.value)} disabled={disabled} maxLength={254} />
+          <MaxLengthWarning value={form.from_email || ''} max={254} />
         </Field>
         <Field label="Contact Phone" id="contact_phone">
-          <Input id="contact_phone" value={form.contact_phone || ''} onChange={e => set('contact_phone', e.target.value)} disabled={disabled} />
+          <Input id="contact_phone" value={form.contact_phone || ''} onChange={e => set('contact_phone', e.target.value)} disabled={disabled} maxLength={20} />
+          <MaxLengthWarning value={form.contact_phone || ''} max={20} />
         </Field>
         <Field label="Currency" id="currency" hint="Display label (e.g. BDT, USD).">
-          <Input id="currency" value={form.currency || ''} onChange={e => set('currency', e.target.value)} disabled={disabled} className="w-28" />
+          <Input id="currency" value={form.currency || ''} onChange={e => set('currency', e.target.value)} disabled={disabled} className="w-28" maxLength={10} />
+          <MaxLengthWarning value={form.currency || ''} max={10} />
         </Field>
         <Field label="Tax Rate (%)" id="tax_rate">
           <Input id="tax_rate" type="number" min="0" step="0.01" value={form.tax_rate ?? 0} onChange={e => set('tax_rate', e.target.value)} disabled={disabled} className="w-28" />
@@ -130,6 +136,13 @@ export default function SettingsPage() {
         </Field>
         <Field label="Free Shipping Threshold" id="free_shipping_threshold" hint="Set 0 to disable free shipping.">
           <Input id="free_shipping_threshold" type="number" min="0" step="0.01" value={form.free_shipping_threshold ?? 0} onChange={e => set('free_shipping_threshold', e.target.value)} disabled={disabled} className="w-36" />
+        </Field>
+      </SettingSection>
+
+      {/* Reviews */}
+      <SettingSection title="Reviews">
+        <Field label="Review Edit Window (days)" id="review_edit_days" hint="How many days after submission a customer can edit or delete their review. Set to 0 for no limit.">
+          <Input id="review_edit_days" type="number" min="0" value={form.review_edit_days ?? 0} onChange={e => set('review_edit_days', parseInt(e.target.value))} disabled={disabled} className="w-28" />
         </Field>
       </SettingSection>
 

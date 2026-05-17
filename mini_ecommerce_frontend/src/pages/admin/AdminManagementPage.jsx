@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import ErrorMessage from '@/components/shared/ErrorMessage'
-import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
+import TableSkeleton from '@/components/shared/TableSkeleton'
 import Pagination from '@/components/shared/Pagination'
 import useUnsavedChanges from '@/hooks/useUnsavedChanges.jsx'
 import api from '@/api/axios'
@@ -30,10 +31,26 @@ function AdminForm({ onSave, onClose, markDirty, confirmClose }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
+
+  function validate() {
+    const errors = {}
+    if (!form.email.trim()) errors.email = 'Email is required.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Enter a valid email address.'
+    if (!form.password) errors.password = 'Password is required.'
+    else if (form.password.length < 8) errors.password = 'Password must be at least 8 characters.'
+    else if (form.password.length > 20) errors.password = 'Password must be at most 20 characters.'
+    if (form.first_name.length > 25) errors.first_name = 'First name must be at most 25 characters.'
+    if (form.last_name.length > 25) errors.last_name = 'Last name must be at most 25 characters.'
+    return errors
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    const errors = validate()
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setSaving(true)
     try {
       await api.post('/admin/users/', form)
@@ -48,23 +65,28 @@ function AdminForm({ onSave, onClose, markDirty, confirmClose }) {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <ErrorMessage error={error} />
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2 space-y-1.5">
-            <Label>Email *</Label>
-            <Input type="email" value={form.email} onChange={e => { setForm(f => ({ ...f, email: e.target.value })); markDirty() }} required />
+            <Label>Email <span className="text-destructive">*</span></Label>
+            <Input type="email" value={form.email} onChange={e => { setForm(f => ({ ...f, email: e.target.value })); setFieldErrors(f => ({ ...f, email: '' })); markDirty() }} />
+            {fieldErrors.email && <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>First name</Label>
-            <Input value={form.first_name} onChange={e => { setForm(f => ({ ...f, first_name: e.target.value })); markDirty() }} />
+            <Input value={form.first_name} onChange={e => { setForm(f => ({ ...f, first_name: e.target.value })); setFieldErrors(f => ({ ...f, first_name: '' })); markDirty() }} maxLength={25} />
+            {fieldErrors.first_name && <p className="text-sm text-destructive mt-1">{fieldErrors.first_name}</p>}
+            <MaxLengthWarning value={form.first_name} max={25} />
           </div>
           <div className="space-y-1.5">
             <Label>Last name</Label>
-            <Input value={form.last_name} onChange={e => { setForm(f => ({ ...f, last_name: e.target.value })); markDirty() }} />
+            <Input value={form.last_name} onChange={e => { setForm(f => ({ ...f, last_name: e.target.value })); setFieldErrors(f => ({ ...f, last_name: '' })); markDirty() }} maxLength={25} />
+            {fieldErrors.last_name && <p className="text-sm text-destructive mt-1">{fieldErrors.last_name}</p>}
+            <MaxLengthWarning value={form.last_name} max={25} />
           </div>
           <div className="space-y-1.5">
-            <Label>Role *</Label>
+            <Label>Role <span className="text-destructive">*</span></Label>
             <Select value={form.role} onValueChange={v => { setForm(f => ({ ...f, role: v })); markDirty() }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -74,8 +96,9 @@ function AdminForm({ onSave, onClose, markDirty, confirmClose }) {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Password *</Label>
-            <Input type="password" value={form.password} onChange={e => { setForm(f => ({ ...f, password: e.target.value })); markDirty() }} required autoComplete="new-password" />
+            <Label>Password <span className="text-destructive">*</span></Label>
+            <Input type="password" value={form.password} onChange={e => { setForm(f => ({ ...f, password: e.target.value })); setFieldErrors(f => ({ ...f, password: '' })); markDirty() }} autoComplete="new-password" maxLength={20} />
+            {fieldErrors.password && <p className="text-sm text-destructive mt-1">{fieldErrors.password}</p>}
           </div>
         </div>
         <DialogFooter>
@@ -170,7 +193,7 @@ export default function AdminManagementPage() {
         </div>
       )}
 
-      {loading ? <LoadingSpinner /> : (
+      {loading ? <TableSkeleton cols={5} /> : (
         <>
           <div className="rounded-xl border border-border overflow-hidden">
             <Table>
