@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { ShoppingCart, Bell, Sun, Moon, Menu, Search, X, LogOut, User, Heart, Package, ChevronDown } from 'lucide-react'
+import { ShoppingCart, Bell, Sun, Moon, Menu, Search, X, LogOut, User, Heart, ShoppingBag, Package, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -105,7 +105,7 @@ export default function Navbar() {
   ]
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 shadow-sm shadow-border/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
 
@@ -114,7 +114,7 @@ export default function Navbar() {
             to="/"
             className="flex items-center gap-2 font-bold text-xl text-primary shrink-0"
           >
-            <Package className="h-6 w-6" />
+            <ShoppingBag className="h-6 w-6" />
             <span className="hidden sm:inline">{storeName}</span>
           </Link>
 

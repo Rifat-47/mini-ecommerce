@@ -69,7 +69,7 @@ export default function ProductCard({ product }) {
     <TooltipProvider>
     <Link
       to={`/products/${id}`}
-      className="group flex flex-col bg-card border border-border rounded-xl overflow-hidden hover:shadow-md transition-shadow duration-200 h-full"
+      className="group flex flex-col bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/20 transition-all duration-200 h-full"
     >
       {/* Image */}
       <div className="relative aspect-square bg-secondary overflow-hidden">
@@ -80,15 +80,16 @@ export default function ProductCard({ product }) {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-            No image
+          <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+            <ShoppingCart className="h-8 w-8 opacity-30" />
+            <span className="text-xs">No image</span>
           </div>
         )}
 
         {/* Discount badge */}
         {discountPct > 0 && (
-          <Badge className="absolute top-2 left-2 bg-destructive text-destructive-foreground text-xs">
-            -{discountPct}%
+          <Badge className="absolute top-2.5 left-2.5 bg-destructive text-destructive-foreground text-xs font-bold px-2 py-0.5 rounded-lg shadow-sm">
+            -{Math.round(discountPct)}%
           </Badge>
         )}
 
@@ -97,22 +98,26 @@ export default function ProductCard({ product }) {
           onClick={handleWishlist}
           disabled={isSyncing}
           className={cn(
-            'absolute top-2 right-2 p-1.5 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors',
-            isSyncing ? 'text-muted-foreground opacity-50 cursor-wait' : wishlisted ? 'text-destructive' : 'text-muted-foreground hover:text-destructive',
+            'absolute top-2.5 right-2.5 p-2 rounded-xl bg-background/85 backdrop-blur-sm shadow-sm border border-border/50 hover:bg-background transition-all duration-150',
+            isSyncing
+              ? 'text-muted-foreground opacity-50 cursor-wait'
+              : wishlisted
+              ? 'text-destructive border-destructive/20 bg-destructive/5'
+              : 'text-muted-foreground hover:text-destructive',
           )}
           aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
         >
-          <Heart className={cn('h-4 w-4', !isSyncing && wishlisted && 'fill-current')} />
+          <Heart className={cn('h-3.5 w-3.5', !isSyncing && wishlisted && 'fill-current')} />
         </button>
 
         {/* Out of stock / Coming soon overlay */}
         {(isComingSoon || !inStock) && (
-          <div className="absolute inset-0 bg-background/70 flex items-center justify-center">
+          <div className="absolute inset-0 bg-background/70 backdrop-blur-[1px] flex items-center justify-center">
             <span className={cn(
-              'text-xs font-semibold px-2.5 py-1 rounded-full',
+              'text-xs font-semibold px-3 py-1.5 rounded-full border',
               isComingSoon
-                ? 'bg-primary/10 text-primary'
-                : 'bg-muted text-muted-foreground',
+                ? 'bg-primary/10 text-primary border-primary/20'
+                : 'bg-muted text-muted-foreground border-border',
             )}>
               {isComingSoon ? 'Coming Soon' : 'Out of Stock'}
             </span>
@@ -121,9 +126,9 @@ export default function ProductCard({ product }) {
       </div>
 
       {/* Content */}
-      <div className="flex flex-col flex-1 p-4 gap-2">
+      <div className="flex flex-col flex-1 p-4 gap-2.5">
         <Tooltip content={name}>
-          <h3 className="font-medium text-sm text-foreground line-clamp-2 leading-snug break-words min-h-[2.5rem]">
+          <h3 className="font-semibold text-sm text-foreground line-clamp-2 leading-snug break-words min-h-[2.5rem]">
             {name}
           </h3>
         </Tooltip>
@@ -140,8 +145,8 @@ export default function ProductCard({ product }) {
         )}
 
         {/* Price */}
-        <div className="flex items-center gap-2 mt-auto">
-          <span className="font-semibold text-foreground">
+        <div className="flex items-baseline gap-2 mt-auto">
+          <span className="font-bold text-base text-primary">
             ৳{effectivePrice.toFixed(2)}
           </span>
           {discountPct > 0 && (
@@ -156,20 +161,21 @@ export default function ProductCard({ product }) {
           size="sm"
           disabled={isComingSoon || !inStock || inCart}
           onClick={handleAddToCart}
+          variant={inCart ? 'secondary' : 'default'}
           className={cn(
-            'w-full mt-1',
-            isComingSoon && 'bg-primary/10 text-primary hover:bg-primary/10 border border-primary/20 opacity-90 cursor-not-allowed',
-            !isComingSoon && !inStock && 'bg-muted text-muted-foreground hover:bg-muted opacity-60 cursor-not-allowed',
-            !isComingSoon && inStock && inCart && 'bg-muted text-muted-foreground hover:bg-muted opacity-60 cursor-not-allowed',
+            'w-full mt-0.5 text-xs h-9 rounded-xl',
+            isComingSoon && 'bg-primary/10 text-primary hover:bg-primary/15 border border-primary/20 cursor-not-allowed',
+            !isComingSoon && !inStock && 'opacity-50 cursor-not-allowed',
           )}
         >
           {isComingSoon
-            ? <Clock className="h-4 w-4 mr-2 shrink-0" />
-            : <ShoppingCart className="h-4 w-4 mr-2 shrink-0" />
+            ? <><Clock className="h-3.5 w-3.5 mr-1.5 shrink-0" /> Coming Soon</>
+            : inCart
+            ? 'Added to Cart ✓'
+            : !inStock
+            ? 'Out of Stock'
+            : <><ShoppingCart className="h-3.5 w-3.5 mr-1.5 shrink-0" /> Add to Cart</>
           }
-          <span className="truncate">
-            {isComingSoon ? 'Coming Soon' : !inStock ? 'Out of Stock' : inCart ? 'Added to Cart' : 'Add to Cart'}
-          </span>
         </Button>
       </div>
     </Link>
