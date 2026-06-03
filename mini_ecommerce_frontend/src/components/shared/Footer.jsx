@@ -10,7 +10,7 @@ export default function Footer() {
   const { isAuthenticated } = useAuthStore()
 
   return (
-    <footer className="mt-auto bg-foreground text-background dark:bg-card dark:text-foreground dark:border-t dark:border-border">
+    <footer className="mt-auto bg-zinc-900 text-zinc-100">
       {/* Top gradient accent */}
       <div className="h-[3px] w-full bg-gradient-to-r from-primary/60 via-primary to-[oklch(0.58_0.22_285)]" />
 
