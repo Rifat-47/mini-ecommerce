@@ -25,8 +25,8 @@ class CategorySerializer(serializers.ModelSerializer):
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'is_primary', 'uploaded_at']
-        read_only_fields = ['id', 'uploaded_at']
+        fields = ['id', 'image', 'cloudinary_url', 'is_primary', 'uploaded_at']
+        read_only_fields = ['id', 'cloudinary_url', 'uploaded_at']
 
     def validate(self, attrs):
         product = self.context['product']
@@ -62,17 +62,20 @@ class ProductSerializer(serializers.ModelSerializer):
         }
 
     def get_average_rating(self, obj):
-        avg = getattr(obj, 'avg_rating', None)
-        if avg is None:
+        # Use hasattr, not getattr(..., None): a product with no reviews has
+        # avg_rating=None as a *valid annotated result* — None must not trigger
+        # the fallback or every zero-review product fires an extra aggregate().
+        if hasattr(obj, 'avg_rating'):
+            avg = obj.avg_rating
+        else:
             from django.db.models import Avg as _Avg
             avg = obj.reviews.aggregate(r=_Avg('rating'))['r']
         return round(avg, 1) if avg is not None else None
 
     def get_review_count(self, obj):
-        count = getattr(obj, 'review_count', None)
-        if count is None:
-            count = obj.reviews.count()
-        return count
+        if hasattr(obj, 'review_count'):
+            return obj.review_count
+        return obj.reviews.count()
 
     def get_images(self, obj):
         request = self.context.get('request')
@@ -81,7 +84,9 @@ class ProductSerializer(serializers.ModelSerializer):
         return [
             {
                 'id': img.id,
-                'image': _absolute_url(img.image.url, request),
+                # Use the pre-cached CDN URL when available (Cloudinary/staging).
+                # Fall back to building the URL for local-dev filesystem images.
+                'image': img.cloudinary_url or _absolute_url(img.image.url, request),
                 'is_primary': img.is_primary,
                 'uploaded_at': img.uploaded_at,
             }

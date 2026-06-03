@@ -10,9 +10,10 @@ class CloudinaryMediaStorage(Storage):
         raise NotImplementedError("Cloudinary storage does not support direct file reads.")
 
     def _save(self, name, content):
+        public_id = name.replace('\\', '/').rsplit('.', 1)[0]
         response = cloudinary.uploader.upload(
             content,
-            public_id=name.rsplit('.', 1)[0],
+            public_id=public_id,
             overwrite=True,
             resource_type='auto',
         )
@@ -31,5 +32,5 @@ class CloudinaryMediaStorage(Storage):
             return False
 
     def url(self, name):
-        public_id = name.rsplit('.', 1)[0]
-        return cloudinary.CloudinaryImage(public_id).build_url()
+        public_id = name.replace('\\', '/').rsplit('.', 1)[0]
+        return cloudinary.CloudinaryImage(public_id).build_url(secure=True)

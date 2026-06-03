@@ -1,4 +1,8 @@
+from django.core.cache import cache
 from django.db import models
+
+_SETTINGS_CACHE_KEY = 'site_settings_singleton'
+_SETTINGS_CACHE_TTL = 60  # seconds
 
 
 class SiteSettings(models.Model):
@@ -46,12 +50,16 @@ class SiteSettings(models.Model):
 
     @classmethod
     def get(cls):
-        obj, _ = cls.objects.get_or_create(pk=1)
+        obj = cache.get(_SETTINGS_CACHE_KEY)
+        if obj is None:
+            obj, _ = cls.objects.get_or_create(pk=1)
+            cache.set(_SETTINGS_CACHE_KEY, obj, _SETTINGS_CACHE_TTL)
         return obj
 
     def save(self, *args, **kwargs):
         self.pk = 1
         super().save(*args, **kwargs)
+        cache.delete(_SETTINGS_CACHE_KEY)
 
     def delete(self, *args, **kwargs):
         pass  # prevent deletion

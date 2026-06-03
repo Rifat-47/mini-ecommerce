@@ -376,6 +376,7 @@ export default function ProductListPage() {
                 <Pagination
                   count={pagination.count}
                   page={parseInt(params.page)}
+                  pageSize={12}
                   onPageChange={(p) => setParam('page', String(p))}
                 />
               </div>

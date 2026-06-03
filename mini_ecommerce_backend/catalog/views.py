@@ -1,4 +1,5 @@
 import csv
+import functools
 from decimal import Decimal, InvalidOperation
 
 import django_filters
@@ -9,6 +10,8 @@ from rest_framework.views import APIView
 from django.db.models import Avg, Count, Q
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
+from ecommerce_backend.cache_utils import PublicCacheMixin
+from ecommerce_backend.pagination import ProductPagination
 from .models import Category, Product, ProductImage, Review, StockMovement
 from .serializers import CategorySerializer, ProductSerializer, ProductImageSerializer, ReviewSerializer, StockMovementSerializer
 from .stock_utils import record_stock_movement
@@ -22,9 +25,12 @@ class IsAdminOrReadOnly(permissions.BasePermission):
         return request.user and request.user.is_authenticated and request.user.role in ['admin', 'superadmin']
 
 
-class CategoryViewSet(viewsets.ModelViewSet):
+class CategoryViewSet(PublicCacheMixin, viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrReadOnly]
+    # Categories are very stable — cache aggressively
+    cache_max_age = 300
+    cache_stale_while_revalidate = 600
 
     def get_queryset(self):
         user = self.request.user
@@ -63,12 +69,35 @@ SORT_MAP = {
 }
 
 
-class ProductViewSet(viewsets.ModelViewSet):
+class ProductViewSet(PublicCacheMixin, viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     permission_classes = [IsAdminOrReadOnly]
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ['name', 'description']
     filterset_class = ProductFilter
+    pagination_class = ProductPagination
+    # Products change more often than categories
+    cache_max_age = 60
+    cache_stale_while_revalidate = 300
+
+    def get_object(self):
+        obj = super().get_object()
+        # Write-path queryset (fix 1.2) omits annotations for speed. Re-attach
+        # them so the serialized response never triggers per-object fallbacks.
+        if not hasattr(obj, 'avg_rating'):
+            result = (
+                Product.objects
+                .filter(pk=obj.pk)
+                .annotate(
+                    avg_rating=Avg('reviews__rating'),
+                    review_count=Count('reviews', distinct=True),
+                )
+                .values('avg_rating', 'review_count')
+                .first()
+            )
+            obj.avg_rating = result['avg_rating']
+            obj.review_count = result['review_count']
+        return obj
 
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -87,22 +116,37 @@ class ProductViewSet(viewsets.ModelViewSet):
         user = self.request.user
         is_admin = user.is_authenticated and hasattr(user, 'role') and user.role in ('admin', 'superadmin')
 
-        qs = Product.objects.select_related('category').prefetch_related('images').annotate(
-            avg_rating=Avg('reviews__rating'),
-            review_count=Count('reviews', distinct=True),
-        )
-        # Write operations must see all products regardless of status
+        # Write operations (create/update/delete): skip aggregation annotations entirely.
+        # The serializer fallback handles avg_rating/review_count on those rare paths.
         if is_admin and self.request.method not in ('GET', 'HEAD', 'OPTIONS'):
-            return qs.order_by(SORT_MAP.get(sort, '-id'))
+            return (
+                Product.objects
+                .select_related('category')
+                .prefetch_related('images')
+                .order_by(SORT_MAP.get(sort, '-id'))
+            )
+
+        # Build all annotations in one pass → single GROUP BY in SQL.
+        # order_count is only joined when actually sorting by popularity.
+        annotations = {
+            'avg_rating': Avg('reviews__rating'),
+            'review_count': Count('reviews', distinct=True),
+        }
+        if sort == 'popularity':
+            annotations['order_count'] = Count('orderitem', distinct=True)
+
+        qs = (
+            Product.objects
+            .select_related('category')
+            .prefetch_related('images')
+            .annotate(**annotations)
+        )
+
         show_all = is_admin and self.request.query_params.get('all') == 'true'
         if not show_all:
             qs = qs.filter(status='active', category__status='active')
 
-        if sort == 'popularity':
-            qs = qs.annotate(order_count=Count('orderitem', distinct=True))
-
-        order_by = SORT_MAP.get(sort, '-id')
-        return qs.order_by(order_by)
+        return qs.order_by(SORT_MAP.get(sort, '-id'))
 
 
 class IsAdminUser(permissions.BasePermission):
@@ -110,26 +154,30 @@ class IsAdminUser(permissions.BasePermission):
         return request.user and request.user.is_authenticated and request.user.role in ['admin', 'superadmin']
 
 
-class ProductImageListCreateView(generics.ListCreateAPIView):
+class ProductImageListCreateView(PublicCacheMixin, generics.ListCreateAPIView):
     serializer_class = ProductImageSerializer
+    # Images are stable; 5 min is safe
+    cache_max_age = 300
+    cache_stale_while_revalidate = 600
 
     def get_permissions(self):
         if self.request.method == 'GET':
             return [permissions.AllowAny()]
         return [IsAdminUser()]
 
-    def get_product(self):
+    @functools.cached_property
+    def product(self):
         try:
             return Product.objects.get(pk=self.kwargs['product_pk'])
         except Product.DoesNotExist:
             raise NotFound("Product not found.")
 
     def get_queryset(self):
-        return ProductImage.objects.filter(product=self.get_product()).order_by('-is_primary', 'uploaded_at')
+        return ProductImage.objects.filter(product=self.product).order_by('-is_primary', 'uploaded_at')
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['product'] = self.get_product()
+        context['product'] = self.product
         return context
 
 
@@ -142,7 +190,8 @@ class ProductImageDetailView(generics.RetrieveUpdateDestroyAPIView):
             return [permissions.AllowAny()]
         return [IsAdminUser()]
 
-    def get_product(self):
+    @functools.cached_property
+    def product(self):
         try:
             return Product.objects.get(pk=self.kwargs['product_pk'])
         except Product.DoesNotExist:
@@ -150,13 +199,13 @@ class ProductImageDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         try:
-            return ProductImage.objects.get(pk=self.kwargs['pk'], product=self.get_product())
+            return ProductImage.objects.get(pk=self.kwargs['pk'], product=self.product)
         except ProductImage.DoesNotExist:
             raise NotFound("Image not found.")
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['product'] = self.get_product()
+        context['product'] = self.product
         return context
 
     def perform_destroy(self, instance):
@@ -171,26 +220,30 @@ class ProductImageDetailView(generics.RetrieveUpdateDestroyAPIView):
                 next_image.save()
 
 
-class ReviewListCreateView(generics.ListCreateAPIView):
+class ReviewListCreateView(PublicCacheMixin, generics.ListCreateAPIView):
     serializer_class = ReviewSerializer
+    # Reviews change more frequently; keep TTL short
+    cache_max_age = 30
+    cache_stale_while_revalidate = 120
 
     def get_permissions(self):
         if self.request.method == 'GET':
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
-    def get_product(self):
+    @functools.cached_property
+    def product(self):
         try:
             return Product.objects.get(pk=self.kwargs['product_pk'])
         except Product.DoesNotExist:
             raise NotFound("Product not found.")
 
     def get_queryset(self):
-        return Review.objects.filter(product=self.get_product()).select_related('user').order_by('-created_at')
+        return Review.objects.filter(product=self.product).select_related('user').order_by('-created_at')
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['product'] = self.get_product()
+        context['product'] = self.product
         return context
 
 
@@ -199,7 +252,8 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
     http_method_names = ['get', 'patch', 'put', 'delete']
 
-    def get_product(self):
+    @functools.cached_property
+    def product(self):
         try:
             return Product.objects.get(pk=self.kwargs['product_pk'])
         except Product.DoesNotExist:
@@ -209,14 +263,14 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         try:
             return Review.objects.select_related('user').get(
                 pk=self.kwargs['pk'],
-                product=self.get_product()
+                product=self.product,
             )
         except Review.DoesNotExist:
             raise NotFound("Review not found.")
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['product'] = self.get_product()
+        context['product'] = self.product
         return context
 
     def check_object_permissions(self, request, obj):
@@ -248,12 +302,14 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 # ── Search Suggestions ───────────────────────────────────────────────────────
 
-class ProductSuggestionsView(APIView):
+class ProductSuggestionsView(PublicCacheMixin, APIView):
     """
     Lightweight autocomplete endpoint.
     Returns up to 10 matching product id + name + price for a given query.
     """
     permission_classes = [permissions.AllowAny]
+    cache_max_age = 30
+    cache_stale_while_revalidate = 120
 
     def get(self, request):
         q = request.query_params.get('q', '').strip()
@@ -391,9 +447,17 @@ class AdminProductExportView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminUser]
 
     def get(self, request):
-        products = Product.objects.select_related('category').prefetch_related(
-            'reviews'
-        ).order_by('category__name', 'name')
+        # Aggregate avg_rating and review_count in the queryset — single SQL query,
+        # no per-row aggregate() or count() calls inside the loop.
+        products = (
+            Product.objects
+            .select_related('category')
+            .annotate(
+                avg_r=Avg('reviews__rating'),
+                rev_count=Count('reviews', distinct=True),
+            )
+            .order_by('category__name', 'name')
+        )
 
         category_filter = request.query_params.get('category')
         if category_filter:
@@ -409,9 +473,9 @@ class AdminProductExportView(APIView):
             'Stock', 'Status', 'Avg Rating', 'Review Count',
         ])
 
-        for product in products:
-            from django.db.models import Avg
-            avg = product.reviews.aggregate(Avg('rating'))['rating__avg']
+        # iterator() streams rows from the DB cursor in chunks rather than
+        # loading the entire result set into memory — safe for large catalogs.
+        for product in products.iterator(chunk_size=500):
             effective_price = product.price * (1 - product.discount_percentage / 100)
             writer.writerow([
                 product.id,
@@ -424,8 +488,8 @@ class AdminProductExportView(APIView):
                 round(effective_price, 2),
                 product.stock,
                 product.status,
-                round(avg, 1) if avg else '—',
-                product.reviews.count(),
+                round(product.avg_r, 1) if product.avg_r else '—',
+                product.rev_count,
             ])
 
         return response

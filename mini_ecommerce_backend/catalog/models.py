@@ -1,3 +1,4 @@
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -7,7 +8,7 @@ class Category(models.Model):
 
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active', db_index=True)
 
     class Meta:
         ordering = ['name']
@@ -26,6 +27,15 @@ class Product(models.Model):
     stock = models.IntegerField(default=0)
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='active', db_index=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['status', 'category_id'], name='catalog_product_status_cat_idx'),
+            # Trigram indexes — make ILIKE '%query%' use the index instead of a
+            # full sequential scan. Requires pg_trgm extension (see migration 0012).
+            GinIndex(fields=['name'],        name='catalog_product_name_trgm_idx', opclasses=['gin_trgm_ops']),
+            GinIndex(fields=['description'], name='catalog_product_desc_trgm_idx', opclasses=['gin_trgm_ops']),
+        ]
+
     def __str__(self):
         return self.name
 
@@ -35,17 +45,31 @@ LOW_STOCK_THRESHOLD = 10
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
     image = models.ImageField(upload_to='product_images/')
+    # Cached CDN URL populated once at upload time so serializers never call
+    # build_url() on every request. Empty for local-dev (filesystem) images.
+    cloudinary_url = models.URLField(blank=True, default='')
     is_primary = models.BooleanField(default=False)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['product', 'is_primary'], name='cat_prodimg_prod_primary_idx'),
+        ]
 
     def __str__(self):
         return f"Image for {self.product.name} ({'primary' if self.is_primary else 'secondary'})"
 
     def save(self, *args, **kwargs):
-        # If this image is being set as primary, demote any existing primary
         if self.is_primary:
             ProductImage.objects.filter(product=self.product, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
         super().save(*args, **kwargs)
+        # Populate cloudinary_url once after the file is committed to storage.
+        # Only store HTTPS URLs (Cloudinary); skip local filesystem paths.
+        if self.image and not self.cloudinary_url:
+            url = self.image.url
+            if url.startswith('https://'):
+                self.cloudinary_url = url
+                ProductImage.objects.filter(pk=self.pk).update(cloudinary_url=url)
 
 
 class Review(models.Model):

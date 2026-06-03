@@ -78,11 +78,12 @@ class CartListCreateView(generics.ListCreateAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        cart_total = sum(item['line_total'] for item in serializer.data)
+        items = serializer.data
+        cart_total = sum(item['line_total'] for item in items)
         return Response({
-            "items": serializer.data,
+            "items": items,
             "cart_total": round(cart_total, 2),
-            "item_count": queryset.count(),
+            "item_count": len(items),
         })
 
     def delete(self, request):

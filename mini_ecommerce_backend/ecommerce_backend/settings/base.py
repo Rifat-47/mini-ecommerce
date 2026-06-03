@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     # Third-party
     'rest_framework',
     'rest_framework_simplejwt',
@@ -72,6 +73,11 @@ if os.environ.get('DATABASE_URL'):
         'default': dj_database_url.config(
             default=os.environ['DATABASE_URL'],
             conn_max_age=600,
+            # Validate the connection before reusing it. Critical for Neon
+            # (serverless Postgres) which scales to zero after idle periods —
+            # without this, a resumed Neon instance returns dead sockets that
+            # cause 500 errors until the worker is recycled.
+            conn_health_checks=True,
         )
     }
 else:
@@ -120,7 +126,7 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ),
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': 'ecommerce_backend.pagination.DefaultPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_THROTTLE_RATES': {
         'anon':            '100/min',

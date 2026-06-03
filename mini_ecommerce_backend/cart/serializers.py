@@ -15,11 +15,16 @@ class WishlistItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'product', 'product_name', 'product_price', 'product_discount_percentage', 'product_stock', 'product_image', 'added_at']
 
     def get_product_image(self, obj):
-        img = obj.product.images.filter(is_primary=True).first()
+        # Use prefetched images (no extra query). Find primary in Python.
+        images = obj.product.images.all()
+        img = next((i for i in images if i.is_primary), None) or next(iter(images), None)
         if not img:
             return None
+        if img.cloudinary_url:
+            return img.cloudinary_url
         request = self.context.get('request')
-        return request.build_absolute_uri(img.image.url) if request else img.image.url
+        url = img.image.url
+        return request.build_absolute_uri(url) if request and not url.startswith('http') else url
         read_only_fields = ['id', 'added_at']
 
     def validate_product(self, product):
@@ -45,11 +50,16 @@ class CartItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'product', 'product_name', 'product_price', 'product_discount_percentage', 'product_stock', 'product_image', 'quantity', 'line_total', 'added_at']
 
     def get_product_image(self, obj):
-        img = obj.product.images.filter(is_primary=True).first()
+        # Use prefetched images (no extra query). Find primary in Python.
+        images = obj.product.images.all()
+        img = next((i for i in images if i.is_primary), None) or next(iter(images), None)
         if not img:
             return None
+        if img.cloudinary_url:
+            return img.cloudinary_url
         request = self.context.get('request')
-        return request.build_absolute_uri(img.image.url) if request else img.image.url
+        url = img.image.url
+        return request.build_absolute_uri(url) if request and not url.startswith('http') else url
         read_only_fields = ['id', 'added_at']
 
     def get_line_total(self, obj):

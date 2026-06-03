@@ -118,11 +118,12 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     def get_product_image(self, obj):
         request = self.context.get('request')
+        # Sort uses prefetch cache (no extra query); primary image comes first
         images = sorted(obj.product.images.all(), key=lambda img: not img.is_primary)
         image = images[0] if images else None
-        if image:
-            return _absolute_url(image.image.url, request)
-        return None
+        if not image:
+            return None
+        return image.cloudinary_url or _absolute_url(image.image.url, request)
 
     def validate_quantity(self, value):
         if value < 1:
