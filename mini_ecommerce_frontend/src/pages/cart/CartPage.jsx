@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import EmptyState from '@/components/shared/EmptyState'
-import { cn } from '@/lib/utils'
+import { cn, cldUrl } from '@/lib/utils'
 import useCartStore from '@/store/cartStore'
 import useAuthStore from '@/store/authStore'
 import { getErrorMessage } from '@/lib/errors'
@@ -42,9 +42,11 @@ function CartItem({ item }) {
         <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg bg-secondary overflow-hidden">
           {item.image ? (
             <img
-              src={item.image}
+              src={cldUrl(item.image, 'f_auto,q_auto,w_192,c_fill')}
               alt={item.name}
               className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
               onError={(e) => {
                 e.currentTarget.style.display = 'none'
                 e.currentTarget.nextSibling.style.display = 'flex'

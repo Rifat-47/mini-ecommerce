@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ShoppingCart, Heart, ChevronLeft, ChevronRight, Minus, Plus, Clock, Pencil, Trash2 } from 'lucide-react'
+import { ShoppingCart, Heart, ChevronLeft, ChevronRight, Minus, Plus, Clock, Pencil, Trash2, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { cn, cldUrl } from '@/lib/utils'
 import StarRating from '@/components/shared/StarRating'
 import ErrorMessage from '@/components/shared/ErrorMessage'
 import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
@@ -35,7 +36,14 @@ function ImageGallery({ images }) {
   return (
     <div className="space-y-3">
       <div className="relative aspect-square bg-secondary rounded-xl overflow-hidden group">
-        <img src={sorted[activeIdx]?.image} alt="Product" className="w-full h-full object-cover" />
+        <img
+          src={cldUrl(sorted[activeIdx]?.image, 'f_auto,q_auto,w_900,c_fill')}
+          alt="Product"
+          className="w-full h-full object-cover"
+          loading="eager"
+          fetchpriority="high"
+          decoding="sync"
+        />
         {sorted.length > 1 && (
           <>
             <button onClick={prev} className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -51,7 +59,13 @@ function ImageGallery({ images }) {
         <div className="flex gap-2 flex-wrap">
           {sorted.map((img, i) => (
             <button key={img.id} onClick={() => setActiveIdx(i)} className={cn('w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors', activeIdx === i ? 'border-primary' : 'border-border')}>
-              <img src={img.image} alt="" className="w-full h-full object-cover" />
+              <img
+                src={cldUrl(img.image, 'f_auto,q_auto,w_120,c_fill')}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
             </button>
           ))}
         </div>
@@ -157,13 +171,20 @@ function ReviewCard({ review, productId, onChanged }) {
   )
 }
 
-function ReviewForm({ productId, onSubmitted, reviews = [] }) {
+function ReviewDialog({ productId, onSubmitted, open, onClose }) {
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
-  const [submitted, setSubmitted] = useState(false)
+
+  function handleClose() {
+    setRating(0)
+    setComment('')
+    setError(null)
+    setFieldErrors({})
+    onClose()
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -177,7 +198,7 @@ function ReviewForm({ productId, onSubmitted, reviews = [] }) {
     try {
       await api.post(`/products/${productId}/reviews/`, { rating, comment })
       toast.success('Review submitted!')
-      setSubmitted(true)
+      handleClose()
       onSubmitted?.()
     } catch (err) {
       const data = err.response?.data
@@ -188,30 +209,73 @@ function ReviewForm({ productId, onSubmitted, reviews = [] }) {
     }
   }
 
-  const { user } = useAuthStore()
-  const alreadyReviewed = reviews.some(r => r.reviewer_email === user?.email)
-
-  if (submitted || alreadyReviewed) {
-    return null
-  }
+  const LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent']
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-4 mt-6 border-t border-border pt-6">
-      <h3 className="font-semibold">Write a review</h3>
-      <ErrorMessage error={error} />
-      <div>
-        <p className="text-sm text-muted-foreground mb-1.5">Your rating</p>
-        <StarRating value={rating} interactive onChange={v => { setRating(v); setFieldErrors(f => ({ ...f, rating: '' })) }} size="lg" />
-        {fieldErrors.rating && <p className="text-sm text-destructive mt-1">{fieldErrors.rating}</p>}
-      </div>
-      <div>
-        <Textarea placeholder="Share your experience (optional)" value={comment} onChange={(e) => { setComment(e.target.value); setFieldErrors(f => ({ ...f, comment: '' })) }} rows={3} maxLength={1000} />
-        {fieldErrors.comment && <p className="text-sm text-destructive mt-1">{fieldErrors.comment}</p>}
-        <MaxLengthWarning value={comment} max={1000} />
-        <p className="text-xs text-muted-foreground mt-1 text-right">{comment.length}/1000</p>
-      </div>
-      <Button type="submit" disabled={loading}>{loading ? 'Submitting...' : 'Submit Review'}</Button>
-    </form>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose() }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Write a Review</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} noValidate className="space-y-5 mt-1">
+          <ErrorMessage error={error} />
+
+          {/* Star picker */}
+          <div>
+            <p className="text-sm font-medium mb-2">Your rating</p>
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => { setRating(star); setFieldErrors(f => ({ ...f, rating: '' })) }}
+                  className="p-0.5 transition-transform hover:scale-110 focus:outline-none"
+                  aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                >
+                  <Star
+                    className={cn(
+                      'h-8 w-8 transition-colors',
+                      star <= rating
+                        ? 'fill-amber-400 text-amber-400'
+                        : 'fill-muted text-muted-foreground/40',
+                    )}
+                  />
+                </button>
+              ))}
+              {rating > 0 && (
+                <span className="ml-2 text-sm font-medium text-amber-600">{LABELS[rating]}</span>
+              )}
+            </div>
+            {fieldErrors.rating && <p className="text-sm text-destructive mt-1.5">{fieldErrors.rating}</p>}
+          </div>
+
+          {/* Comment */}
+          <div>
+            <p className="text-sm font-medium mb-2">Your review <span className="text-muted-foreground font-normal">(optional)</span></p>
+            <Textarea
+              placeholder="Share your experience with this product..."
+              value={comment}
+              onChange={(e) => { setComment(e.target.value); setFieldErrors(f => ({ ...f, comment: '' })) }}
+              rows={4}
+              maxLength={1000}
+              className="resize-none"
+            />
+            {fieldErrors.comment && <p className="text-sm text-destructive mt-1">{fieldErrors.comment}</p>}
+            <MaxLengthWarning value={comment} max={1000} />
+            <p className="text-xs text-muted-foreground mt-1 text-right">{comment.length}/1000</p>
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading || !rating}>
+              {loading ? 'Submitting…' : 'Submit Review'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -221,6 +285,8 @@ export default function ProductDetailPage() {
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const alreadyReviewed = reviews.some(r => r.reviewer_email === user?.email)
 
   const addItem = useCartStore((s) => s.addItem)
   const inCart = useCartStore((s) => s.items.some((i) => i.product_id === Number(id)))
@@ -229,7 +295,7 @@ export default function ProductDetailPage() {
   const addToBackend = useWishlistStore((s) => s.addToBackend)
   const removeFromWishlist = useWishlistStore((s) => s.removeItem)
   const removeFromBackend = useWishlistStore((s) => s.removeFromBackend)
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const { isAuthenticated, user } = useAuthStore()
 
   function fetchReviews() {
     api.get(`/products/${id}/reviews/`).then(({ data }) => setReviews(data.results ?? data)).catch(() => {})
@@ -396,6 +462,14 @@ export default function ProductDetailPage() {
           </TabsContent>
 
           <TabsContent value="reviews" className="mt-4">
+            {isAuthenticated() && !alreadyReviewed && (
+              <div className="mb-5">
+                <Button variant="outline" onClick={() => setReviewDialogOpen(true)}>
+                  <Star className="h-4 w-4 mr-2" />
+                  Write a Review
+                </Button>
+              </div>
+            )}
             {reviews.length === 0 ? (
               <p className="text-muted-foreground text-sm">No reviews yet. Be the first!</p>
             ) : (
@@ -405,7 +479,12 @@ export default function ProductDetailPage() {
                 ))}
               </div>
             )}
-            {isAuthenticated() && <ReviewForm productId={id} onSubmitted={fetchReviews} reviews={reviews} />}
+            <ReviewDialog
+              productId={id}
+              onSubmitted={fetchReviews}
+              open={reviewDialogOpen}
+              onClose={() => setReviewDialogOpen(false)}
+            />
           </TabsContent>
         </Tabs>
       </div>

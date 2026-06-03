@@ -176,29 +176,25 @@ const useCartStore = create((set, get) => ({
     try {
       const { data: backendCart } = await api.get('/cart/')
       const localItems = get().items
+      let finalCart = backendCart
 
-      if (backendCart.items.length === 0 && localItems.length > 0) {
-        // Backend cart is empty — push all local items
-        await Promise.allSettled(
-          localItems.map((item) =>
-            api.post('/cart/', { product: item.product_id, quantity: item.quantity }),
-          ),
-        )
-      } else if (backendCart.items.length > 0 && localItems.length > 0) {
-        // Both have items — push local-only items (backend items take precedence for duplicates)
+      if (localItems.length > 0) {
         const backendProductIds = new Set(backendCart.items.map((i) => i.product))
         const localOnlyItems = localItems.filter(
           (i) => !backendProductIds.has(i.product_id),
         )
-        await Promise.allSettled(
-          localOnlyItems.map((item) =>
-            api.post('/cart/', { product: item.product_id, quantity: item.quantity }),
-          ),
-        )
+        if (localOnlyItems.length > 0) {
+          await Promise.allSettled(
+            localOnlyItems.map((item) =>
+              api.post('/cart/', { product: item.product_id, quantity: item.quantity }),
+            ),
+          )
+          // Re-fetch only when we pushed new items
+          const { data } = await api.get('/cart/')
+          finalCart = data
+        }
       }
 
-      // Re-fetch final backend cart state and use it as source of truth
-      const { data: finalCart } = await api.get('/cart/')
       const syncedItems = finalCart.items.map((item) => ({
         product_id: item.product,
         name: item.product_name,

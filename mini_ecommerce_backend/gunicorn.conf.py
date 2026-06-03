@@ -2,9 +2,9 @@ import os
 
 # ── Workers ───────────────────────────────────────────────────────────────────
 # Render free tier: 512 MB RAM.
-# Each sync worker uses ~60-80 MB → 2 workers leave ~350 MB headroom.
+# Each sync worker uses ~60-80 MB; master + OS ~150 MB → 4 workers use ~470 MB total.
 # Formula for sizing: (2 × CPU cores) + 1, capped at RAM / ~80 MB.
-workers = int(os.environ.get('WEB_CONCURRENCY', 2))
+workers = int(os.environ.get('WEB_CONCURRENCY', 4))
 
 # ── Binding ───────────────────────────────────────────────────────────────────
 # Render injects $PORT at runtime; fall back to 8000 for local runs.

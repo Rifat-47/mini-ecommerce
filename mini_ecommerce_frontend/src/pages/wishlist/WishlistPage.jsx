@@ -9,6 +9,7 @@ import useCartStore from '@/store/cartStore'
 import useAuthStore from '@/store/authStore'
 import api from '@/api/axios'
 import { getErrorMessage } from '@/lib/errors'
+import { cldUrl } from '@/lib/utils'
 
 function WishlistItem({ item, isAuthenticated }) {
   const removeItem = useWishlistStore((s) => s.removeItem)
@@ -66,9 +67,11 @@ function WishlistItem({ item, isAuthenticated }) {
         <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg bg-secondary overflow-hidden">
           {item.image ? (
             <img
-              src={item.image}
+              src={cldUrl(item.image, 'f_auto,q_auto,w_192,c_fill')}
               alt={item.name}
               className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
               onError={(e) => {
                 e.currentTarget.style.display = 'none'
                 e.currentTarget.nextSibling.style.display = 'flex'

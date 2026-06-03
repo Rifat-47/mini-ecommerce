@@ -10,6 +10,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import ErrorMessage from '@/components/shared/ErrorMessage'
 import MaxLengthWarning from '@/components/shared/MaxLengthWarning'
 import api from '@/api/axios'
+import { cldUrl } from '@/lib/utils'
 
 const STATUS_COLORS = {
   Pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -339,7 +340,7 @@ export default function OrderDetailPage() {
               <Link to={`/products/${item.product}`} className="shrink-0">
                 <div className="w-16 h-16 rounded-lg bg-secondary overflow-hidden">
                   {item.product_image ? (
-                    <img src={item.product_image} alt={item.product_name} className="w-full h-full object-cover" />
+                    <img src={cldUrl(item.product_image, 'f_auto,q_auto,w_128,c_fill')} alt={item.product_name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">No img</div>
                   )}

@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipProvider } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
+import { cn, cldUrl } from '@/lib/utils'
 import useCartStore from '@/store/cartStore'
 import useWishlistStore from '@/store/wishlistStore'
 import useAuthStore from '@/store/authStore'
@@ -75,9 +75,11 @@ export default function ProductCard({ product }) {
       <div className="relative aspect-square bg-secondary overflow-hidden">
         {primaryImage ? (
           <img
-            src={primaryImage}
+            src={cldUrl(primaryImage, 'f_auto,q_auto,w_400,c_fill')}
             alt={name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+            decoding="async"
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">

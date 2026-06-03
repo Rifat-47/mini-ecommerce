@@ -53,22 +53,23 @@ const useWishlistStore = create((set, get) => ({
     set({ isSyncing: true })
     try {
       const { data: backendRaw } = await api.get('/wishlist/')
-      const backendWishlist = backendRaw.results ?? backendRaw
+      let finalWishlist = backendRaw.results ?? backendRaw
       const localItems = get().items
 
-      // Push local-only items to backend
       if (localItems.length > 0) {
-        const backendProductIds = new Set(backendWishlist.map((i) => i.product))
+        const backendProductIds = new Set(finalWishlist.map((i) => i.product))
         const localOnly = localItems.filter((i) => !backendProductIds.has(i.product_id))
 
-        await Promise.allSettled(
-          localOnly.map((item) => api.post('/wishlist/', { product: item.product_id })),
-        )
+        if (localOnly.length > 0) {
+          await Promise.allSettled(
+            localOnly.map((item) => api.post('/wishlist/', { product: item.product_id })),
+          )
+          // Re-fetch only when we pushed new items
+          const { data: finalRaw } = await api.get('/wishlist/')
+          finalWishlist = finalRaw.results ?? finalRaw
+        }
       }
 
-      // Re-fetch final backend state and use it as source of truth
-      const { data: finalRaw } = await api.get('/wishlist/')
-      const finalWishlist = finalRaw.results ?? finalRaw
       const synced = finalWishlist.map((item) => ({
         product_id: item.product,
         name: item.product_name,

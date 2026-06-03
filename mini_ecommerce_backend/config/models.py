@@ -2,7 +2,7 @@ from django.core.cache import cache
 from django.db import models
 
 _SETTINGS_CACHE_KEY = 'site_settings_singleton'
-_SETTINGS_CACHE_TTL = 60  # seconds
+_SETTINGS_CACHE_TTL = 300  # seconds
 
 
 class SiteSettings(models.Model):
