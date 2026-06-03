@@ -105,17 +105,22 @@ export default function Navbar() {
   ]
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 shadow-sm shadow-border/50">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 shadow-sm shadow-border/30">
+      {/* Top accent bar */}
+      <div className="h-[3px] w-full bg-gradient-to-r from-primary/60 via-primary to-[oklch(0.58_0.22_285)]" />
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-4">
+        <div className="flex h-14 items-center justify-between gap-4">
 
           {/* Logo */}
           <Link
             to="/"
-            className="flex items-center gap-2 font-bold text-xl text-primary shrink-0"
+            className="flex items-center gap-2 font-extrabold text-xl shrink-0"
           >
-            <ShoppingBag className="h-6 w-6" />
-            <span className="hidden sm:inline">{storeName}</span>
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground shadow-sm shadow-primary/30">
+              <ShoppingBag className="h-4 w-4" />
+            </div>
+            <span className="hidden sm:inline text-gradient">{storeName}</span>
           </Link>
 
           {/* Desktop nav links */}
