@@ -1,7 +1,3 @@
-# ── Seed / one-off scripts ────────────────────────────────
-mini_ecommerce_backend/seed_prod.py
-mini_ecommerce_backend/seed_images.py
-
 # ── Python / Django ───────────────────────────────────────
 mini_ecommerce_backend/venv/
 mini_ecommerce_backend/lvenv/
@@ -18,18 +14,12 @@ mini_ecommerce_frontend/.env
 mini_ecommerce_frontend/.env.local
 mini_ecommerce_frontend/.env.*.local
 
-# ── Postman collection (keep private) ────────────────────
-mini_ecommerce_backend/postman/
+# ── Postman ───────────────────────────────────────────────
+postman/
 
-# ── Business docs (keep private) ─────────────────────────
-mini_ecommerce_backend/business docs/
+# ── Private docs ──────────────────────────────────────────
 mini_ecommerce_frontend/docs/
-NEXT_SESSION.md
-note.txt
-
-# ── Staging deployment notes (keep private) ──────────────
 STAGING_DEPLOYMENT.md
-DEPLOYMNET_READINESS.md 
 
 # ── OS / Editor ───────────────────────────────────────────
 .DS_Store
@@ -37,4 +27,3 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
-env
